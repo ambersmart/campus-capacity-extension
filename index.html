@@ -305,7 +305,10 @@ const state = {window:4, view:'grid'};
 
 function sortedCampuses(){ return Object.keys(MODEL.campuses).sort((a,b)=>a.localeCompare(b)); }
 function sortedServices(c){ return Object.keys(c.services).sort((x,y)=>{ const kx=svcSortKey(x),ky=svcSortKey(y); return kx[0]-ky[0]||kx[1]-ky[1]||x.localeCompare(y); }); }
-function primeCount(c){ return Object.keys(c.services).filter(isPrime).length; }
+// Only the services that actually ran during the selected weeks — this drops one-off
+// dated services (e.g. a Christmas service) so counts mean "what we currently run".
+function activeServices(c,weeks){ return sortedServices(c).filter(svc=>weeks.some(w=>c.services[svc].byWeek[w])); }
+function primeCount(svcNames){ return svcNames.filter(isPrime).length; }
 
 /* ---------------- render: Fill Grid ---------------- */
 function renderGrid(){
@@ -314,14 +317,15 @@ function renderGrid(){
   sortedCampuses().forEach(name=>{
     const c=MODEL.campuses[name];
     const card=document.createElement('div'); card.className='card';
+    const active=activeServices(c,weeks);
     const head=document.createElement('div'); head.className='campus-head';
     head.innerHTML=`<div class="cname">${name}</div>
-      <div class="cmeta"><b>${fmt(c.cap)}</b> seats &middot; <b>${primeCount(c)}</b> prime &middot; <b>${Object.keys(c.services).length}</b> total services</div>`;
+      <div class="cmeta"><b>${fmt(c.cap)}</b> seats &middot; <b>${primeCount(active)}</b> prime &middot; <b>${active.length}</b> total services</div>`;
     card.appendChild(head);
 
     const table=document.createElement('div');
     table.innerHTML=`<div class="svcrow headrow"><div>Service</div><div class="num">Attendance</div><div class="num">Seats</div><div>Fill vs. full line</div><div class="util">Fill&nbsp;%</div><div></div></div>`;
-    sortedServices(c).forEach(svc=>{
+    active.forEach(svc=>{
       const s=c.services[svc], a=avgOver(s,weeks);
       const pct=a?a.pct:null, light=lightFor(pct,svc), full=fullLine(svc);
       const barPct=pct==null?0:Math.min(100,pct);
@@ -342,16 +346,18 @@ function renderGrid(){
 
 /* ---------------- render: Scorecards ---------------- */
 function renderScore(){
+  const weeks=windowWeeks(MODEL,state.window);
   const host=document.getElementById('scoreBody'); host.innerHTML='';
   sortedCampuses().forEach(name=>{
     const c=MODEL.campuses[name];
-    const primeSvcs=Object.keys(c.services).filter(isPrime);
+    const active=activeServices(c,weeks);
+    const primeSvcs=active.filter(isPrime);
     const triggers=primeSvcs.filter(svc=>{ const st=fullStreak(c.services[svc],MODEL.weeksDesc); return st.hits>=4; });
     const card=document.createElement('div'); card.className='sccard';
     card.innerHTML=`<h3>${name}</h3>
       <div class="scrow"><span class="k">Seats (one service)</span><span class="v">${fmt(c.cap)}</span></div>
       <div class="scrow"><span class="k">Prime service hours</span><span class="v">${primeSvcs.length}</span></div>
-      <div class="scrow"><span class="k">Total services</span><span class="v">${Object.keys(c.services).length}</span></div>`;
+      <div class="scrow"><span class="k">Total services</span><span class="v">${active.length}</span></div>`;
     const flag=document.createElement('div');
     if(triggers.length){
       flag.className='flag hot';
@@ -368,10 +374,12 @@ function renderScore(){
 
 /* ---------------- render: Network ---------------- */
 function renderNet(){
+  const weeks=windowWeeks(MODEL,state.window);
   const campuses=sortedCampuses();
   let totSeats=0, totPrime=0, totSvc=0;
   const rows=campuses.map(name=>{
-    const c=MODEL.campuses[name]; const p=primeCount(c), t=Object.keys(c.services).length;
+    const c=MODEL.campuses[name]; const active=activeServices(c,weeks);
+    const p=primeCount(active), t=active.length;
     totSeats+=c.cap; totPrime+=p; totSvc+=t;
     return {name, cap:c.cap, p, t};
   });
@@ -436,10 +444,27 @@ function field(rec,cands){
   return undefined;
 }
 // Read a worksheet into plain records keyed by normalized field name.
+// Un-melts Tableau's "Measure Names / Measure Values" shape (what you get when a
+// sheet shows several measures) back into one record with each measure as its own field.
 async function readRecords(ws){
   const dt=await ws.getSummaryDataAsync({ignoreSelection:true});
   const cols=dt.columns.map(c=>({name:norm(c.fieldName),index:c.index}));
-  return dt.data.map(row=>{ const rec={}; cols.forEach(c=>rec[c.name]=row[c.index]); return rec; });
+  const mn=cols.find(c=>c.name==='measurenames');
+  const mv=cols.find(c=>c.name==='measurevalues');
+  const records=[];
+  if(mn&&mv){
+    const dims=cols.filter(c=>c!==mn&&c!==mv);
+    const groups=new Map();
+    dt.data.forEach(row=>{
+      const key=dims.map(c=>cellStr(row[c.index])).join('|');
+      let rec=groups.get(key);
+      if(!rec){ rec={}; dims.forEach(c=>rec[c.name]=row[c.index]); groups.set(key,rec); records.push(rec); }
+      rec[norm(cellStr(row[mn.index]))]=row[mv.index];
+    });
+  }else{
+    dt.data.forEach(row=>{ const rec={}; cols.forEach(c=>rec[c.name]=row[c.index]); records.push(rec); });
+  }
+  return records;
 }
 async function loadFromTableau(){
   const dash=tableau.extensions.dashboardContent.dashboard;
