@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Capacity & Service Strategy</title>
+<!-- Official Tableau Extensions API library (saved locally so it always loads) -->
+<script src="tableau.extensions.1.latest.js"></script>
+<style>
+  .viz-root{
+    color-scheme:light;
+    --page:#f9f9f7; --surface-1:#fcfcfb; --surface-2:#f2f2ef;
+    --text-1:#0b0b0b; --text-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+    --blue-450:#2a78d6;
+    --good:#0ca30c; --warning:#fab219; --critical:#d03b3b; --nocap:#c3c2b7;
+    --prime:#7c4dff; --prime-bg:rgba(124,77,255,0.10);
+  }
+  :root[data-theme="dark"] .viz-root{
+    color-scheme:dark;
+    --page:#0d0d0d; --surface-1:#1a1a19; --surface-2:#242422;
+    --text-1:#fff; --text-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+    --blue-450:#3987e5;
+    --good:#0ca30c; --warning:#fab219; --critical:#d03b3b; --nocap:#4a4a47;
+    --prime:#b39dff; --prime-bg:rgba(124,77,255,0.18);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  .viz-root{background:var(--page);color:var(--text-1);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;padding:22px;font-size:14px;line-height:1.45}
+  .wrap{max-width:1180px;margin:0 auto}
+  header.app{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  header.app h1{font-size:21px;margin:0 0 2px;letter-spacing:-.01em}
+  header.app p{margin:0;color:var(--text-2);font-size:13px}
+  .theme-btn{cursor:pointer;font:inherit;font-size:12px;color:var(--text-2);background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:6px 10px}
+
+  .controls{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:16px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .field select{font:inherit;font-size:13px;color:var(--text-1);background:var(--surface-1);border:1px solid var(--baseline);border-radius:8px;padding:7px 30px 7px 10px;min-width:170px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+  .spacer{flex:1 1 20px}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px}
+  .seg button{font:inherit;font-size:13px;font-weight:600;color:var(--text-2);cursor:pointer;background:transparent;border:0;border-radius:7px;padding:7px 13px}
+  .seg button[aria-selected="true"]{background:var(--surface-1);color:var(--text-1);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .window-note{color:var(--muted);font-size:12px;margin:-6px 0 16px;padding-left:2px}
+  .window-note b{color:var(--text-2)}
+
+  .card{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  .card h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 12px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:2px 0 16px;color:var(--text-2);font-size:12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+  .dot.green{background:var(--good)}.dot.yellow{background:var(--warning)}.dot.red{background:var(--critical)}.dot.unknown{background:var(--nocap)}
+  .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
+  .tag.prime{color:var(--prime);background:var(--prime-bg);border:1px solid var(--prime)}
+
+  /* ---- Fill Grid ---- */
+  .campus-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .campus-head .cname{font-size:16px;font-weight:650;letter-spacing:-.01em}
+  .campus-head .cmeta{color:var(--text-2);font-size:12.5px}
+  .campus-head .cmeta b{color:var(--text-1);font-variant-numeric:tabular-nums}
+  .svcrow{display:grid;grid-template-columns:200px 96px 96px minmax(120px,1fr) 66px 14px;gap:12px;align-items:center;padding:7px 4px;border-top:1px solid var(--grid)}
+  .svcrow.headrow{border-top:0;padding-bottom:2px}
+  .svcrow.headrow div{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .svcrow .svcname{font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .svcrow .num{font-variant-numeric:tabular-nums;text-align:right;color:var(--text-2)}
+  .svcrow .num b{color:var(--text-1)}
+  .meter{height:9px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+  .meter>i{display:block;height:100%;border-radius:999px}
+  .meter.green>i{background:var(--good)}.meter.yellow>i{background:var(--warning)}.meter.red>i{background:var(--critical)}.meter.unknown>i{background:var(--nocap)}
+  .util{font-variant-numeric:tabular-nums;text-align:right;font-size:13px;font-weight:650}
+  .thresh{color:var(--muted);font-weight:400;font-size:11px}
+
+  /* ---- Scorecards ---- */
+  .scgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .sccard{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .sccard h3{margin:0 0 12px;font-size:16px;font-weight:650}
+  .scrow{display:flex;align-items:baseline;justify-content:space-between;padding:6px 0;border-top:1px solid var(--grid)}
+  .scrow:first-of-type{border-top:0}
+  .scrow .k{color:var(--text-2);font-size:13px}
+  .scrow .v{font-variant-numeric:tabular-nums;font-weight:650;font-size:15px}
+  .flag{margin-top:12px;font-size:12.5px;border-radius:9px;padding:9px 11px;line-height:1.4}
+  .flag.hot{background:rgba(208,59,59,.10);border:1px solid var(--critical);color:var(--text-1)}
+  .flag.ok{background:var(--surface-2);border:1px solid var(--border);color:var(--text-2)}
+  .flag b{color:var(--critical)}
+
+  /* ---- Network ---- */
+  .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:6px}
+  .stat{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+  .stat .n{font-size:44px;font-weight:650;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .l{color:var(--text-2);font-size:13px;margin-top:8px}
+  .stat .l b{color:var(--text-1)}
+  .nettable{width:100%;border-collapse:collapse;margin-top:4px}
+  .nettable th,.nettable td{text-align:right;padding:8px 10px;font-variant-numeric:tabular-nums;border-top:1px solid var(--grid)}
+  .nettable th{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-top:0}
+  .nettable td:first-child,.nettable th:first-child{text-align:left;font-variant-numeric:normal}
+  .nettable tfoot td{font-weight:700;border-top:2px solid var(--baseline)}
+
+  .note{color:var(--muted);font-size:12px;margin-top:14px;line-height:1.55}
+  .note b{color:var(--text-2)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="viz-root"><div class="wrap">
+  <header class="app">
+    <div>
+      <h1>Campus Capacity &amp; Service Strategy</h1>
+      <p>Seats, attendance, and fill % against the new full thresholds &mdash; to decide where to add services.</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">&#9680; Theme</button>
+  </header>
+
+  <div class="controls">
+    <div class="field">
+      <label for="fWindow">Time window</label>
+      <select id="fWindow">
+        <option value="1">Last Sunday</option>
+        <option value="4" selected>4-week average</option>
+        <option value="5">5-week average</option>
+      </select>
+    </div>
+    <div class="spacer"></div>
+    <div class="field"><label>&nbsp;</label>
+      <div class="seg" role="tablist">
+        <button id="tabGrid"  role="tab" aria-selected="true">Fill Grid</button>
+        <button id="tabScore" role="tab" aria-selected="false">Campus Scorecards</button>
+        <button id="tabNet"   role="tab" aria-selected="false">Network Roll-up</button>
+      </div>
+    </div>
+  </div>
+  <div class="window-note" id="windowNote"></div>
+
+  <!-- ================= FILL GRID ================= -->
+  <section id="viewGrid">
+    <div class="legend">
+      <span><i class="dot green"></i> Room to grow</span>
+      <span><i class="dot yellow"></i> Approaching full</span>
+      <span><i class="dot red"></i> Full &mdash; time to add a service</span>
+      <span><span class="tag prime">Prime</span> Sun 9&ndash;11am &middot; full at 70%</span>
+      <span>Other services &middot; full at 40%</span>
+    </div>
+    <div id="gridBody"></div>
+    <p class="note"><b>Fill %</b> = average attendance &divide; auditorium seats for the window above. A service turns red once it hits its
+    "full" line: <b>70%</b> for prime Sunday-morning hours (was 80%), <b>40%</b> for every other service.</p>
+  </section>
+
+  <!-- ================= SCORECARDS ================= -->
+  <section id="viewScore" class="hidden">
+    <div class="scgrid" id="scoreBody"></div>
+    <p class="note">A prime service that has stayed <b>at or above 70% for 4 of the last 5 weeks</b> is flagged as a growth trigger &mdash;
+    the signal to plan a new service for the next growth season (fall, January, Easter).</p>
+  </section>
+
+  <!-- ================= NETWORK ================= -->
+  <section id="viewNet" class="hidden">
+    <div class="statrow" id="netStats"></div>
+    <div class="card">
+      <h2>By campus</h2>
+      <table class="nettable" id="netTable"></table>
+    </div>
+    <p class="note">
+      <b>Total seats</b> counts one service per campus (the auditorium's adult seating). <b>Prime hours</b> are services that start
+      between 9:00 and 11:00am on Sunday. These are today's baseline numbers &mdash; the starting point for the
+      "do we have plans to add seats / prime hours / services in the next 6&ndash;12 months?" conversation.
+      If a campus's seat count here includes rooms you would <i>not</i> count (like the DDC balconies), adjust
+      <b>Capacity Auditorium</b> in the data for that campus and it flows through everywhere.
+    </p>
+  </section>
+</div></div>
+
+<script>
+/* ------------------------------------------------------------------ *
+ * Sample data — used only for previewing the look outside Tableau.
+ * Contains NO client information (made-up campuses and numbers).
+ * Inside a Tableau dashboard this is replaced by the live worksheet.
+ *
+ * The worksheet is expected to have these columns:
+ *   Campus Name | Sunday Date | Service | Attendance | Capacity Auditorium | % Adult Capacity
+ * ------------------------------------------------------------------ */
+
+// Full thresholds, as a % of auditorium seats.
+const PRIME_FULL = 70;   // prime Sunday-morning services are "full" at 70%
+const OTHER_FULL = 40;   // every other service is "full" at 40%
+const YELLOW_GAP = 10;   // within this many points below "full" => yellow
+
+// Prime = starts Sunday between 9:00 and 11:00 am (inclusive).
+const PRIME_START = 9*60, PRIME_END = 11*60;
+
+const WEEKS = ['2026-07-19','2026-07-26','2026-08-02','2026-08-09','2026-08-16']; // oldest -> newest
+const SAMPLE_DEFS = {
+  'CPC':         {cap:500,  services:[
+    {svc:'Thursday 7:00 PM',  pcts:[.28,.31,.30,.29,.32]},
+    {svc:'Sunday 8:00 AM',    pcts:[.38,.42,.40,.39,.41]},
+    {svc:'Sunday 9:45 AM',    pcts:[.86,.90,.92,.88,.91]},   // prime, running hot
+    {svc:'Sunday 11:30 AM',   pcts:[.48,.52,.50,.49,.53]},
+  ]},
+  'Chapel Hill': {cap:800,  services:[
+    {svc:'Sunday 9:00 AM',    pcts:[.52,.55,.58,.60,.99]},   // prime: ~57% avg but sold out last week
+    {svc:'Sunday 11:00 AM',   pcts:[.62,.64,.66,.65,.70]},   // prime
+  ]},
+  'DDC':         {cap:1500, services:[
+    {svc:'Saturday 6:00 PM',  pcts:[.33,.36,.34,.35,.37]},
+    {svc:'Sunday 9:30 AM',    pcts:[.74,.78,.80,.82,.85]},   // prime, sustained full
+    {svc:'Sunday 11:15 AM',   pcts:[.66,.70,.72,.68,.71]},   // not prime -> way over its 40% line
+  ]},
+};
+function buildSample(){
+  const recs=[];
+  for(const campus in SAMPLE_DEFS){
+    const d=SAMPLE_DEFS[campus];
+    d.services.forEach(s=>WEEKS.forEach((wk,i)=>{
+      const att=Math.round(d.cap*s.pcts[i]);
+      recs.push({campus:campus, date:wk, t:Date.parse(wk), service:s.svc, att:att, cap:d.cap});
+    }));
+  }
+  return recs;
+}
+
+let RECORDS = buildSample();
+
+/* ---------------- helpers ---------------- */
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const WEEKEND_ORDER=['Thursday','Friday','Saturday','Sunday'];
+
+function weekdayFrom(v){
+  if(v==null||v==='')return '';
+  const s=String(v).toLowerCase();
+  for(const d of DAYS){ if(s.includes(d.toLowerCase()))return d; }
+  const t=new Date(v).getTime();
+  if(!isNaN(t))return DAYS[new Date(v).getDay()];
+  return '';
+}
+// Minutes-past-midnight of a service's start time, parsed from its name. 1e9 if none.
+function svcMinutes(name){
+  const m=String(name||'').match(/(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m/i);
+  if(!m)return 1e9;
+  let h=(+m[1])%12; if(/p/i.test(m[3]))h+=12;
+  return h*60+(m[2]?+m[2]:0);
+}
+function isPrime(svc){
+  if(weekdayFrom(svc)!=='Sunday')return false;
+  const mins=svcMinutes(svc);
+  return mins>=PRIME_START && mins<=PRIME_END;
+}
+function fullLine(svc){ return isPrime(svc)?PRIME_FULL:OTHER_FULL; }
+function lightFor(pct,svc){
+  if(pct==null||isNaN(pct))return 'unknown';
+  const full=fullLine(svc);
+  if(pct>=full)return 'red';
+  if(pct>=full-YELLOW_GAP)return 'yellow';
+  return 'green';
+}
+function svcSortKey(svc){
+  const day=weekdayFrom(svc); const dr=day?WEEKEND_ORDER.indexOf(day):-1;
+  return [dr<0?99:dr, svcMinutes(svc)];
+}
+
+/* ---------------- model ---------------- */
+// Group flat records into: campuses -> {cap, weeks:Set, services:{svc -> {byWeek:{date->{att,pct}}}}}
+function buildModel(records){
+  const campuses={};
+  const allWeeks=new Set();
+  records.forEach(r=>{
+    if(!r.campus||!r.service)return;
+    allWeeks.add(r.date);
+    const c = campuses[r.campus] || (campuses[r.campus]={cap:0, services:{}, weeks:new Set()});
+    if(r.cap>0) c.cap=Math.max(c.cap, r.cap);       // auditorium seats (constant per campus)
+    c.weeks.add(r.date);
+    const s = c.services[r.service] || (c.services[r.service]={byWeek:{}});
+    const cap = r.cap>0 ? r.cap : c.cap;
+    const pct = cap>0 ? +(r.att/cap*100).toFixed(1) : r.pct;
+    s.byWeek[r.date] = {att:r.att, pct:pct};
+  });
+  // second pass so pct uses the campus cap even if a row was missing capacity
+  Object.values(campuses).forEach(c=>{
+    Object.values(c.services).forEach(s=>{
+      Object.values(s.byWeek).forEach(w=>{
+        if((w.pct==null||isNaN(w.pct)) && c.cap>0) w.pct=+(w.att/c.cap*100).toFixed(1);
+      });
+    });
+  });
+  return {campuses, weeksDesc:[...allWeeks].sort((a,b)=>Date.parse(b)-Date.parse(a))};
+}
+
+// The N most-recent weeks for the chosen window.
+function windowWeeks(model,n){ return model.weeksDesc.slice(0,n); }
+
+// Average a service's attendance + pct over the given weeks (weeks it actually ran).
+function avgOver(svcObj,weeks){
+  let a=0,p=0,k=0;
+  weeks.forEach(w=>{ const d=svcObj.byWeek[w]; if(d){ a+=d.att; p+=(d.pct||0); k++; } });
+  return k? {att:a/k, pct:p/k, weeks:k} : null;
+}
+// How many of the last 5 weeks a prime service was at/over the 70% line.
+function fullStreak(svcObj,weeksDesc){
+  const last5=weeksDesc.slice(0,5);
+  let hits=0; last5.forEach(w=>{ const d=svcObj.byWeek[w]; if(d && d.pct>=PRIME_FULL) hits++; });
+  return {hits, of:last5.length};
+}
+
+/* ---------------- state ---------------- */
+let MODEL = buildModel(RECORDS);
+const state = {window:4, view:'grid'};
+
+function sortedCampuses(){ return Object.keys(MODEL.campuses).sort((a,b)=>a.localeCompare(b)); }
+function sortedServices(c){ return Object.keys(c.services).sort((x,y)=>{ const kx=svcSortKey(x),ky=svcSortKey(y); return kx[0]-ky[0]||kx[1]-ky[1]||x.localeCompare(y); }); }
+function primeCount(c){ return Object.keys(c.services).filter(isPrime).length; }
+
+/* ---------------- render: Fill Grid ---------------- */
+function renderGrid(){
+  const weeks=windowWeeks(MODEL,state.window);
+  const host=document.getElementById('gridBody'); host.innerHTML='';
+  sortedCampuses().forEach(name=>{
+    const c=MODEL.campuses[name];
+    const card=document.createElement('div'); card.className='card';
+    const head=document.createElement('div'); head.className='campus-head';
+    head.innerHTML=`<div class="cname">${name}</div>
+      <div class="cmeta"><b>${fmt(c.cap)}</b> seats &middot; <b>${primeCount(c)}</b> prime &middot; <b>${Object.keys(c.services).length}</b> total services</div>`;
+    card.appendChild(head);
+
+    const table=document.createElement('div');
+    table.innerHTML=`<div class="svcrow headrow"><div>Service</div><div class="num">Attendance</div><div class="num">Seats</div><div>Fill vs. full line</div><div class="util">Fill&nbsp;%</div><div></div></div>`;
+    sortedServices(c).forEach(svc=>{
+      const s=c.services[svc], a=avgOver(s,weeks);
+      const pct=a?a.pct:null, light=lightFor(pct,svc), full=fullLine(svc);
+      const barPct=pct==null?0:Math.min(100,pct);
+      const row=document.createElement('div'); row.className='svcrow';
+      row.innerHTML=`
+        <div class="svcname">${svc}${isPrime(svc)?' <span class="tag prime">Prime</span>':''}</div>
+        <div class="num"><b>${a?fmt(a.att):'&mdash;'}</b></div>
+        <div class="num">${fmt(c.cap)}</div>
+        <div class="meter ${light}"><i style="width:${barPct.toFixed(0)}%"></i></div>
+        <div class="util">${pct==null?'&mdash;':pct.toFixed(0)+'%'} <span class="thresh">/ ${full}</span></div>
+        <div><span class="dot ${light}"></span></div>`;
+      table.appendChild(row);
+    });
+    card.appendChild(table);
+    host.appendChild(card);
+  });
+}
+
+/* ---------------- render: Scorecards ---------------- */
+function renderScore(){
+  const host=document.getElementById('scoreBody'); host.innerHTML='';
+  sortedCampuses().forEach(name=>{
+    const c=MODEL.campuses[name];
+    const primeSvcs=Object.keys(c.services).filter(isPrime);
+    const triggers=primeSvcs.filter(svc=>{ const st=fullStreak(c.services[svc],MODEL.weeksDesc); return st.hits>=4; });
+    const card=document.createElement('div'); card.className='sccard';
+    card.innerHTML=`<h3>${name}</h3>
+      <div class="scrow"><span class="k">Seats (one service)</span><span class="v">${fmt(c.cap)}</span></div>
+      <div class="scrow"><span class="k">Prime service hours</span><span class="v">${primeSvcs.length}</span></div>
+      <div class="scrow"><span class="k">Total services</span><span class="v">${Object.keys(c.services).length}</span></div>`;
+    const flag=document.createElement('div');
+    if(triggers.length){
+      flag.className='flag hot';
+      flag.innerHTML=`<b>Growth trigger:</b> ${triggers.map(t=>t.replace(/^Sunday\s*/,'')).join(', ')}
+        held &ge;70% for 4+ of the last 5 weeks. Plan a new service for the next growth season.`;
+    }else{
+      flag.className='flag ok';
+      flag.textContent='No prime service has sustained 70% for 4–5 weeks yet. Keep watching.';
+    }
+    card.appendChild(flag);
+    host.appendChild(card);
+  });
+}
+
+/* ---------------- render: Network ---------------- */
+function renderNet(){
+  const campuses=sortedCampuses();
+  let totSeats=0, totPrime=0, totSvc=0;
+  const rows=campuses.map(name=>{
+    const c=MODEL.campuses[name]; const p=primeCount(c), t=Object.keys(c.services).length;
+    totSeats+=c.cap; totPrime+=p; totSvc+=t;
+    return {name, cap:c.cap, p, t};
+  });
+  const stats=document.getElementById('netStats');
+  stats.innerHTML=`
+    <div class="stat"><div class="n">${fmt(totSeats)}</div><div class="l">Total <b>seats</b> across all campuses<br>(one service each)</div></div>
+    <div class="stat"><div class="n">${fmt(totPrime)}</div><div class="l">Total <b>prime service hours</b><br>(Sun 9&ndash;11am)</div></div>
+    <div class="stat"><div class="n">${fmt(totSvc)}</div><div class="l">Total <b>services</b> we run<br>(prime + non-prime)</div></div>`;
+  const tbl=document.getElementById('netTable');
+  tbl.innerHTML=`<thead><tr><th>Campus</th><th>Seats</th><th>Prime hours</th><th>Total services</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td>${r.name}</td><td>${fmt(r.cap)}</td><td>${r.p}</td><td>${r.t}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>All campuses</td><td>${fmt(totSeats)}</td><td>${totPrime}</td><td>${totSvc}</td></tr></tfoot>`;
+}
+
+/* ---------------- view switching ---------------- */
+function setWindowNote(){
+  const weeks=windowWeeks(MODEL,state.window);
+  const note=document.getElementById('windowNote');
+  if(state.window==1){
+    note.innerHTML=`Showing <b>${weeks[0]||'—'}</b> (most recent Sunday). Switch the window if one week looks unusual.`;
+  }else{
+    const oldest=weeks[weeks.length-1]||'—', newest=weeks[0]||'—';
+    note.innerHTML=`Averaging the <b>${weeks.length}</b> weeks from <b>${oldest}</b> through <b>${newest}</b>. A single packed week can hide inside an average &mdash; switch to "Last Sunday" to check.`;
+  }
+}
+function render(){
+  setWindowNote();
+  if(state.view==='grid')  renderGrid();
+  if(state.view==='score') renderScore();
+  if(state.view==='net')   renderNet();
+}
+function setView(v){
+  state.view=v;
+  document.getElementById('tabGrid').setAttribute('aria-selected',v==='grid');
+  document.getElementById('tabScore').setAttribute('aria-selected',v==='score');
+  document.getElementById('tabNet').setAttribute('aria-selected',v==='net');
+  document.getElementById('viewGrid').classList.toggle('hidden',v!=='grid');
+  document.getElementById('viewScore').classList.toggle('hidden',v!=='score');
+  document.getElementById('viewNet').classList.toggle('hidden',v!=='net');
+  render();
+}
+document.getElementById('fWindow').addEventListener('change',e=>{state.window=+e.target.value;render();});
+document.getElementById('tabGrid').addEventListener('click',()=>setView('grid'));
+document.getElementById('tabScore').addEventListener('click',()=>setView('score'));
+document.getElementById('tabNet').addEventListener('click',()=>setView('net'));
+document.getElementById('themeBtn').addEventListener('click',()=>{const r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');render();});
+
+/* ================================================================== *
+ * LIVE DATA — read one worksheet on the same Tableau dashboard.
+ *   Columns (matched loosely, case/spacing-insensitive):
+ *     Campus Name | Sunday Date | Service | Attendance |
+ *     Capacity Auditorium | % Adult Capacity
+ * Put any single worksheet carrying these fields on the dashboard.
+ * ================================================================== */
+const norm=s=>String(s==null?'':s).toLowerCase().replace(/[^a-z0-9]/g,'');
+function cellNum(cell){ if(!cell)return 0; let v=cell.nativeValue; if(v==null)v=cell.value; let n=Number(v);
+  if(isNaN(n)) n=Number(String(cell.formattedValue||'').replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+function cellStr(cell){ if(!cell)return ''; const v=(cell.formattedValue!=null&&cell.formattedValue!=='')?cell.formattedValue:(cell.value!=null?cell.value:''); return String(v).trim(); }
+function field(rec,cands){
+  for(const cnd of cands){ const k=norm(cnd); if(k in rec)return rec[k]; }
+  for(const cnd of cands){ const k=norm(cnd); for(const key in rec){ if(key.includes(k))return rec[key]; } }
+  return undefined;
+}
+// Read a worksheet into plain records keyed by normalized field name.
+async function readRecords(ws){
+  const dt=await ws.getSummaryDataAsync({ignoreSelection:true});
+  const cols=dt.columns.map(c=>({name:norm(c.fieldName),index:c.index}));
+  return dt.data.map(row=>{ const rec={}; cols.forEach(c=>rec[c.name]=row[c.index]); return rec; });
+}
+async function loadFromTableau(){
+  const dash=tableau.extensions.dashboardContent.dashboard;
+  // Prefer a sheet whose columns include Campus + Service + Attendance.
+  let chosen=null;
+  for(const ws of dash.worksheets){
+    try{
+      const dt=await ws.getSummaryDataAsync({ignoreSelection:true,maxRows:1});
+      const names=dt.columns.map(c=>norm(c.fieldName));
+      if(names.some(n=>n.includes('campus')) && names.some(n=>n.includes('service')) && names.some(n=>n.includes('attend'))){ chosen=ws; break; }
+    }catch(e){}
+  }
+  if(!chosen) chosen=dash.worksheets[0];
+  if(!chosen) throw new Error('No worksheets on this dashboard.');
+
+  const recs=[];
+  (await readRecords(chosen)).forEach(rec=>{
+    const campus=cellStr(field(rec,['Campus Name','Campus']));
+    const service=cellStr(field(rec,['Service']));
+    if(!campus||!service)return;
+    const dateCell=field(rec,['Sunday Date','Weekend','Date']);
+    recs.push({
+      campus, service,
+      date: cellStr(dateCell),
+      t: (()=>{const d=new Date(cellStr(dateCell)).getTime(); return isNaN(d)?0:d;})(),
+      att: cellNum(field(rec,['Attendance','Att'])),
+      cap: cellNum(field(rec,['Capacity Auditorium','Capacity','Seats'])),
+      pct: (()=>{ const c=field(rec,['% Adult Capacity','Adult Capacity','% Capacity','Pct']); if(c===undefined)return null;
+                  let n=cellNum(c); if(n>0&&n<=1.5)n*=100; return n||null; })()
+    });
+  });
+  if(!recs.length) throw new Error('The worksheet returned no Campus/Service rows.');
+  RECORDS=recs; MODEL=buildModel(RECORDS);
+
+  // Stay live: redraw when the sheet's data changes.
+  try{ chosen.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh); }catch(e){}
+}
+
+let refreshing=false;
+async function refresh(){ if(refreshing)return; refreshing=true; try{ await loadFromTableau(); }catch(e){} refreshing=false; render(); }
+
+async function boot(){
+  document.getElementById('fWindow').value=String(state.window);
+  if(window.tableau && tableau.extensions && tableau.extensions.initializeAsync){
+    try{ await tableau.extensions.initializeAsync(); await loadFromTableau(); }
+    catch(e){ console.warn('Capacity extension: using sample data —', e && e.message); }
+  }
+  render();
+}
+boot();
+</script>
+</body>
+</html>
