@@ -95,6 +95,19 @@
   .nettable td:first-child,.nettable th:first-child{text-align:left;font-variant-numeric:normal}
   .nettable tfoot td{font-weight:700;border-top:2px solid var(--baseline)}
 
+  /* ---- 12-Week Trend heatmap ---- */
+  .trendscroll{overflow-x:auto}
+  .trendgrid{display:flex;flex-direction:column;gap:4px}
+  .trow{display:grid;gap:3px;align-items:center}
+  .trow.head .tlabel{color:var(--muted);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .trow.head .tcell{color:var(--muted);font-size:10.5px;font-weight:600;background:transparent}
+  .tlabel{font-size:12.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-right:6px}
+  .tcell{font-variant-numeric:tabular-nums;font-size:12px;text-align:center;padding:6px 2px;border-radius:5px;color:var(--text-1)}
+  .tcell.green{background:rgba(12,163,12,.16)}
+  .tcell.yellow{background:rgba(250,178,25,.22)}
+  .tcell.red{background:rgba(208,59,59,.22);font-weight:650}
+  .tcell.unknown{background:var(--surface-2);color:var(--muted)}
+
   .note{color:var(--muted);font-size:12px;margin-top:14px;line-height:1.55}
   .note b{color:var(--text-2)}
   .hidden{display:none!important}
@@ -111,19 +124,24 @@
   </header>
 
   <div class="controls">
-    <div class="field">
+    <div class="field" id="windowField">
       <label for="fWindow">Time window</label>
       <select id="fWindow">
         <option value="1">Last Sunday</option>
         <option value="4" selected>4-week average</option>
-        <option value="5">5-week average</option>
+        <option value="12">12-week average</option>
       </select>
+    </div>
+    <div class="field" id="trendCampusField" style="display:none">
+      <label for="fTrendCampus">Campus</label>
+      <select id="fTrendCampus"></select>
     </div>
     <div class="spacer"></div>
     <div class="field"><label>&nbsp;</label>
       <div class="seg" role="tablist">
         <button id="tabGrid"  role="tab" aria-selected="true">Fill Grid</button>
         <button id="tabScore" role="tab" aria-selected="false">Campus Scorecards</button>
+        <button id="tabTrend" role="tab" aria-selected="false">12-Week Trend</button>
         <button id="tabNet"   role="tab" aria-selected="false">Church Roll-up</button>
       </div>
     </div>
@@ -149,6 +167,21 @@
     <div class="scgrid" id="scoreBody"></div>
     <p class="note">A prime service that has stayed <b>at or above 70% for 4 of the last 5 weeks</b> is flagged as a growth trigger &mdash;
     the signal to plan a new service for the next growth season (fall, January, Easter).</p>
+  </section>
+
+  <!-- ================= 12-WEEK TREND ================= -->
+  <section id="viewTrend" class="hidden">
+    <div class="legend">
+      <span><i class="dot green"></i> Room to grow</span>
+      <span><i class="dot yellow"></i> Approaching full</span>
+      <span><i class="dot red"></i> Full</span>
+      <span><span class="tag prime">Prime</span> Sun 9&ndash;11am &middot; full at 70%</span>
+      <span>Other services &middot; full at 40%</span>
+    </div>
+    <div class="card"><div class="trendscroll"><div id="trendBody"></div></div></div>
+    <p class="note">Each cell is that service's <b>% of seats</b> for that week (attendance &divide; auditorium seats). Read a row
+    left&rarr;right to see its 12-week trend; color flags when it crosses its full line. A blank cell means the service
+    didn't run that week. Pick a campus above.</p>
   </section>
 
   <!-- ================= NETWORK ================= -->
@@ -186,22 +219,23 @@ const YELLOW_GAP = 10;   // within this many points below "full" => yellow
 // Prime = starts Sunday between 9:00 and 11:00 am (inclusive).
 const PRIME_START = 9*60, PRIME_END = 11*60;
 
-const WEEKS = ['2026-07-19','2026-07-26','2026-08-02','2026-08-09','2026-08-16']; // oldest -> newest
+const WEEKS = ['2026-05-31','2026-06-07','2026-06-14','2026-06-21','2026-06-28','2026-07-05',
+              '2026-07-12','2026-07-19','2026-07-26','2026-08-02','2026-08-09','2026-08-16']; // oldest -> newest
 const SAMPLE_DEFS = {
   'CPC':         {cap:500,  services:[
-    {svc:'Thursday 7:00 PM',  pcts:[.28,.31,.30,.29,.32]},
-    {svc:'Sunday 8:00 AM',    pcts:[.38,.42,.40,.39,.41]},
-    {svc:'Sunday 9:45 AM',    pcts:[.86,.90,.92,.88,.91]},   // prime, running hot
-    {svc:'Sunday 11:30 AM',   pcts:[.48,.52,.50,.49,.53]},
+    {svc:'Thursday 7:00 PM',  pcts:[.26,.27,.28,.29,.30,.28,.31,.30,.29,.30,.31,.32]},
+    {svc:'Sunday 8:00 AM',    pcts:[.36,.37,.38,.40,.39,.41,.40,.38,.42,.40,.39,.41]},
+    {svc:'Sunday 9:45 AM',    pcts:[.80,.82,.83,.85,.86,.87,.88,.86,.90,.92,.88,.91]},   // prime, running hot
+    {svc:'Sunday 11:30 AM',   pcts:[.45,.47,.48,.50,.49,.51,.50,.48,.52,.50,.49,.53]},
   ]},
   'Chapel Hill': {cap:800,  services:[
-    {svc:'Sunday 9:00 AM',    pcts:[.52,.55,.58,.60,.99]},   // prime: ~57% avg but sold out last week
-    {svc:'Sunday 11:00 AM',   pcts:[.62,.64,.66,.65,.70]},   // prime
+    {svc:'Sunday 9:00 AM',    pcts:[.50,.52,.53,.55,.54,.56,.58,.57,.58,.60,.62,.99]},   // prime: ~57% avg but sold out last week
+    {svc:'Sunday 11:00 AM',   pcts:[.58,.60,.61,.62,.63,.64,.65,.66,.64,.65,.68,.70]},   // prime
   ]},
   'DDC':         {cap:1500, services:[
-    {svc:'Saturday 6:00 PM',  pcts:[.33,.36,.34,.35,.37]},
-    {svc:'Sunday 9:30 AM',    pcts:[.74,.78,.80,.82,.85]},   // prime, sustained full
-    {svc:'Sunday 11:15 AM',   pcts:[.66,.70,.72,.68,.71]},   // not prime -> way over its 40% line
+    {svc:'Saturday 6:00 PM',  pcts:[.30,.31,.32,.33,.34,.35,.34,.36,.35,.34,.36,.37]},
+    {svc:'Sunday 9:30 AM',    pcts:[.70,.71,.72,.74,.75,.76,.78,.80,.79,.82,.83,.85]},   // prime, sustained full
+    {svc:'Sunday 11:15 AM',   pcts:[.60,.62,.64,.66,.65,.68,.70,.72,.69,.70,.68,.71]},   // not prime -> over its 40% line
   ]},
 };
 function buildSample(){
@@ -301,7 +335,7 @@ function fullStreak(svcObj,weeksDesc){
 
 /* ---------------- state ---------------- */
 let MODEL = buildModel(RECORDS);
-const state = {window:4, view:'grid'};
+const state = {window:4, view:'grid', trendCampus:null};
 
 function sortedCampuses(){ return Object.keys(MODEL.campuses).sort((a,b)=>a.localeCompare(b)); }
 function sortedServices(c){ return Object.keys(c.services).sort((x,y)=>{ const kx=svcSortKey(x),ky=svcSortKey(y); return kx[0]-ky[0]||kx[1]-ky[1]||x.localeCompare(y); }); }
@@ -372,6 +406,43 @@ function renderScore(){
   });
 }
 
+/* ---------------- render: 12-Week Trend ---------------- */
+function shortDate(s){ const d=new Date(s); if(isNaN(d.getTime()))return String(s).slice(5); return (d.getMonth()+1)+'/'+d.getDate(); }
+function initTrendCampus(){
+  const sel=document.getElementById('fTrendCampus'); if(!sel)return;
+  const keys=sortedCampuses();
+  if(!keys.includes(state.trendCampus)) state.trendCampus=keys[0]||null;
+  sel.innerHTML=keys.map(k=>`<option value="${k}">${k}</option>`).join('');
+  if(state.trendCampus) sel.value=state.trendCampus;
+}
+function renderTrend(){
+  const weeks=MODEL.weeksDesc.slice(0,12).reverse();   // oldest -> newest, up to 12
+  const cols=weeks.length;
+  const host=document.getElementById('trendBody'); host.innerHTML='';
+  const name=(state.trendCampus && MODEL.campuses[state.trendCampus]) ? state.trendCampus : sortedCampuses()[0];
+  if(!name || !cols){ host.innerHTML='<p class="note">No data yet.</p>'; return; }
+  const c=MODEL.campuses[name];
+  const active=activeServices(c,weeks);
+  const tmpl=`minmax(150px,190px) repeat(${cols},minmax(40px,1fr))`;
+  const minW=(190+cols*44)+'px';
+  const grid=document.createElement('div'); grid.className='trendgrid'; grid.style.minWidth=minW;
+  const head=document.createElement('div'); head.className='trow head'; head.style.gridTemplateColumns=tmpl;
+  head.innerHTML=`<div class="tlabel">Service &middot; ${fmt(c.cap)} seats</div>`+weeks.map(w=>`<div class="tcell">${shortDate(w)}</div>`).join('');
+  grid.appendChild(head);
+  if(!active.length){ host.appendChild(grid); host.insertAdjacentHTML('beforeend','<p class="note">No services ran at this campus in the last 12 weeks.</p>'); return; }
+  active.forEach(svc=>{
+    const row=document.createElement('div'); row.className='trow'; row.style.gridTemplateColumns=tmpl;
+    let cells=`<div class="tlabel">${svc}${isPrime(svc)?' <span class="tag prime">Prime</span>':''}</div>`;
+    weeks.forEach(w=>{
+      const d=c.services[svc].byWeek[w];
+      if(d && d.pct!=null){ cells+=`<div class="tcell ${lightFor(d.pct,svc)}">${d.pct.toFixed(0)}%</div>`; }
+      else cells+=`<div class="tcell unknown">&mdash;</div>`;
+    });
+    row.innerHTML=cells; grid.appendChild(row);
+  });
+  host.appendChild(grid);
+}
+
 /* ---------------- render: Network ---------------- */
 function renderNet(){
   const weeks=windowWeeks(MODEL,state.window);
@@ -407,23 +478,33 @@ function setWindowNote(){
 }
 function render(){
   setWindowNote();
+  document.getElementById('windowNote').style.display = state.view==='trend' ? 'none' : '';
   if(state.view==='grid')  renderGrid();
   if(state.view==='score') renderScore();
+  if(state.view==='trend') renderTrend();
   if(state.view==='net')   renderNet();
 }
 function setView(v){
   state.view=v;
   document.getElementById('tabGrid').setAttribute('aria-selected',v==='grid');
   document.getElementById('tabScore').setAttribute('aria-selected',v==='score');
+  document.getElementById('tabTrend').setAttribute('aria-selected',v==='trend');
   document.getElementById('tabNet').setAttribute('aria-selected',v==='net');
   document.getElementById('viewGrid').classList.toggle('hidden',v!=='grid');
   document.getElementById('viewScore').classList.toggle('hidden',v!=='score');
+  document.getElementById('viewTrend').classList.toggle('hidden',v!=='trend');
   document.getElementById('viewNet').classList.toggle('hidden',v!=='net');
+  // The window selector is only meaningful off the trend tab (the trend is always 12 weeks);
+  // the campus picker shows only on the trend tab.
+  document.getElementById('windowField').style.display = v==='trend' ? 'none' : '';
+  document.getElementById('trendCampusField').style.display = v==='trend' ? '' : 'none';
   render();
 }
 document.getElementById('fWindow').addEventListener('change',e=>{state.window=+e.target.value;render();});
+document.getElementById('fTrendCampus').addEventListener('change',e=>{state.trendCampus=e.target.value;render();});
 document.getElementById('tabGrid').addEventListener('click',()=>setView('grid'));
 document.getElementById('tabScore').addEventListener('click',()=>setView('score'));
+document.getElementById('tabTrend').addEventListener('click',()=>setView('trend'));
 document.getElementById('tabNet').addEventListener('click',()=>setView('net'));
 document.getElementById('themeBtn').addEventListener('click',()=>{const r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');render();});
 
@@ -504,7 +585,7 @@ async function loadFromTableau(){
 }
 
 let refreshing=false;
-async function refresh(){ if(refreshing)return; refreshing=true; try{ await loadFromTableau(); }catch(e){} refreshing=false; render(); }
+async function refresh(){ if(refreshing)return; refreshing=true; try{ await loadFromTableau(); }catch(e){} refreshing=false; initTrendCampus(); render(); }
 
 async function boot(){
   document.getElementById('fWindow').value=String(state.window);
@@ -512,6 +593,7 @@ async function boot(){
     try{ await tableau.extensions.initializeAsync(); await loadFromTableau(); }
     catch(e){ console.warn('Capacity extension: using sample data —', e && e.message); }
   }
+  initTrendCampus();
   render();
 }
 boot();
