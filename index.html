@@ -134,8 +134,8 @@
     <div class="field" id="windowField">
       <label for="fWindow">Time window</label>
       <select id="fWindow">
-        <option value="1">Last Sunday</option>
-        <option value="4" selected>4-week average</option>
+        <option value="1" selected>Last Sunday</option>
+        <option value="4">4-week average</option>
         <option value="12">12-week average</option>
       </select>
     </div>
@@ -339,7 +339,7 @@ function fullStreak(svcObj,weeksDesc){
 
 /* ---------------- state ---------------- */
 let MODEL = buildModel(RECORDS);
-const state = {window:4, view:'grid', primeOnly:false};
+const state = {window:1, view:'grid', primeOnly:false};
 
 function sortedCampuses(){ return Object.keys(MODEL.campuses).sort((a,b)=>a.localeCompare(b)); }
 function sortedServices(c){ return Object.keys(c.services).sort((x,y)=>{ const kx=svcSortKey(x),ky=svcSortKey(y); return kx[0]-ky[0]||kx[1]-ky[1]||x.localeCompare(y); }); }
