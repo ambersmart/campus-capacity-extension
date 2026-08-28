@@ -107,6 +107,11 @@
   .tcell.yellow{background:rgba(250,178,25,.22)}
   .tcell.red{background:rgba(208,59,59,.22);font-weight:650}
   .tcell.unknown{background:var(--surface-2);color:var(--muted)}
+  .trow.tcampus{margin-top:18px;border-top:1px solid var(--grid);padding-top:10px}
+  .trendgrid>.trow.tcampus:first-child{margin-top:0;border-top:0;padding-top:0}
+  .trow.head.tcampus .tlabel{text-transform:none;letter-spacing:0;color:var(--text-1)}
+  .trow.head.tcampus .cname{font-size:14px;font-weight:650}
+  .trow.head.tcampus .sub{font-size:11px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
 
   .note{color:var(--muted);font-size:12px;margin-top:14px;line-height:1.55}
   .note b{color:var(--text-2)}
@@ -131,10 +136,6 @@
         <option value="4" selected>4-week average</option>
         <option value="12">12-week average</option>
       </select>
-    </div>
-    <div class="field" id="trendCampusField" style="display:none">
-      <label for="fTrendCampus">Campus</label>
-      <select id="fTrendCampus"></select>
     </div>
     <div class="spacer"></div>
     <div class="field"><label>&nbsp;</label>
@@ -179,9 +180,9 @@
       <span>Other services &middot; full at 40%</span>
     </div>
     <div class="card"><div class="trendscroll"><div id="trendBody"></div></div></div>
-    <p class="note">Each cell is that service's <b>% of seats</b> for that week (attendance &divide; auditorium seats). Read a row
-    left&rarr;right to see its 12-week trend; color flags when it crosses its full line. A blank cell means the service
-    didn't run that week. Pick a campus above.</p>
+    <p class="note">Every campus, stacked. Each cell is that service's <b>% of seats</b> for that week (attendance &divide;
+    auditorium seats). Read a row left&rarr;right to see its 12-week trend; color flags when it crosses its full line.
+    A blank cell means the service didn't run that week. Scroll down for more campuses; scroll sideways if the weeks run wide.</p>
   </section>
 
   <!-- ================= NETWORK ================= -->
@@ -335,7 +336,7 @@ function fullStreak(svcObj,weeksDesc){
 
 /* ---------------- state ---------------- */
 let MODEL = buildModel(RECORDS);
-const state = {window:4, view:'grid', trendCampus:null};
+const state = {window:4, view:'grid'};
 
 function sortedCampuses(){ return Object.keys(MODEL.campuses).sort((a,b)=>a.localeCompare(b)); }
 function sortedServices(c){ return Object.keys(c.services).sort((x,y)=>{ const kx=svcSortKey(x),ky=svcSortKey(y); return kx[0]-ky[0]||kx[1]-ky[1]||x.localeCompare(y); }); }
@@ -408,38 +409,35 @@ function renderScore(){
 
 /* ---------------- render: 12-Week Trend ---------------- */
 function shortDate(s){ const d=new Date(s); if(isNaN(d.getTime()))return String(s).slice(5); return (d.getMonth()+1)+'/'+d.getDate(); }
-function initTrendCampus(){
-  const sel=document.getElementById('fTrendCampus'); if(!sel)return;
-  const keys=sortedCampuses();
-  if(!keys.includes(state.trendCampus)) state.trendCampus=keys[0]||null;
-  sel.innerHTML=keys.map(k=>`<option value="${k}">${k}</option>`).join('');
-  if(state.trendCampus) sel.value=state.trendCampus;
-}
 function renderTrend(){
   const weeks=MODEL.weeksDesc.slice(0,12).reverse();   // oldest -> newest, up to 12
   const cols=weeks.length;
   const host=document.getElementById('trendBody'); host.innerHTML='';
-  const name=(state.trendCampus && MODEL.campuses[state.trendCampus]) ? state.trendCampus : sortedCampuses()[0];
-  if(!name || !cols){ host.innerHTML='<p class="note">No data yet.</p>'; return; }
-  const c=MODEL.campuses[name];
-  const active=activeServices(c,weeks);
+  if(!cols){ host.innerHTML='<p class="note">No data yet.</p>'; return; }
   const tmpl=`minmax(150px,190px) repeat(${cols},minmax(40px,1fr))`;
   const minW=(190+cols*44)+'px';
   const grid=document.createElement('div'); grid.className='trendgrid'; grid.style.minWidth=minW;
-  const head=document.createElement('div'); head.className='trow head'; head.style.gridTemplateColumns=tmpl;
-  head.innerHTML=`<div class="tlabel">Service &middot; ${fmt(c.cap)} seats</div>`+weeks.map(w=>`<div class="tcell">${shortDate(w)}</div>`).join('');
-  grid.appendChild(head);
-  if(!active.length){ host.appendChild(grid); host.insertAdjacentHTML('beforeend','<p class="note">No services ran at this campus in the last 12 weeks.</p>'); return; }
-  active.forEach(svc=>{
-    const row=document.createElement('div'); row.className='trow'; row.style.gridTemplateColumns=tmpl;
-    let cells=`<div class="tlabel">${svc}${isPrime(svc)?' <span class="tag prime">Prime</span>':''}</div>`;
-    weeks.forEach(w=>{
-      const d=c.services[svc].byWeek[w];
-      if(d && d.pct!=null){ cells+=`<div class="tcell ${lightFor(d.pct,svc)}">${d.pct.toFixed(0)}%</div>`; }
-      else cells+=`<div class="tcell unknown">&mdash;</div>`;
+
+  sortedCampuses().forEach(name=>{
+    const c=MODEL.campuses[name];
+    const active=activeServices(c,weeks);
+    if(!active.length) return;   // skip campuses with nothing in the last 12 weeks
+    // Per-campus header: campus name in the label column, week dates across the top.
+    const head=document.createElement('div'); head.className='trow head tcampus'; head.style.gridTemplateColumns=tmpl;
+    head.innerHTML=`<div class="tlabel"><b class="cname">${name}</b> <span class="sub">${fmt(c.cap)} seats</span></div>`+weeks.map(w=>`<div class="tcell">${shortDate(w)}</div>`).join('');
+    grid.appendChild(head);
+    active.forEach(svc=>{
+      const row=document.createElement('div'); row.className='trow'; row.style.gridTemplateColumns=tmpl;
+      let cells=`<div class="tlabel">${svc}${isPrime(svc)?' <span class="tag prime">Prime</span>':''}</div>`;
+      weeks.forEach(w=>{
+        const d=c.services[svc].byWeek[w];
+        if(d && d.pct!=null){ cells+=`<div class="tcell ${lightFor(d.pct,svc)}">${d.pct.toFixed(0)}%</div>`; }
+        else cells+=`<div class="tcell unknown">&mdash;</div>`;
+      });
+      row.innerHTML=cells; grid.appendChild(row);
     });
-    row.innerHTML=cells; grid.appendChild(row);
   });
+  if(!grid.children.length){ host.innerHTML='<p class="note">No services ran in the last 12 weeks.</p>'; return; }
   host.appendChild(grid);
 }
 
@@ -494,14 +492,11 @@ function setView(v){
   document.getElementById('viewScore').classList.toggle('hidden',v!=='score');
   document.getElementById('viewTrend').classList.toggle('hidden',v!=='trend');
   document.getElementById('viewNet').classList.toggle('hidden',v!=='net');
-  // The window selector is only meaningful off the trend tab (the trend is always 12 weeks);
-  // the campus picker shows only on the trend tab.
+  // The window selector is only meaningful off the trend tab (the trend is always 12 weeks).
   document.getElementById('windowField').style.display = v==='trend' ? 'none' : '';
-  document.getElementById('trendCampusField').style.display = v==='trend' ? '' : 'none';
   render();
 }
 document.getElementById('fWindow').addEventListener('change',e=>{state.window=+e.target.value;render();});
-document.getElementById('fTrendCampus').addEventListener('change',e=>{state.trendCampus=e.target.value;render();});
 document.getElementById('tabGrid').addEventListener('click',()=>setView('grid'));
 document.getElementById('tabScore').addEventListener('click',()=>setView('score'));
 document.getElementById('tabTrend').addEventListener('click',()=>setView('trend'));
@@ -585,7 +580,7 @@ async function loadFromTableau(){
 }
 
 let refreshing=false;
-async function refresh(){ if(refreshing)return; refreshing=true; try{ await loadFromTableau(); }catch(e){} refreshing=false; initTrendCampus(); render(); }
+async function refresh(){ if(refreshing)return; refreshing=true; try{ await loadFromTableau(); }catch(e){} refreshing=false; render(); }
 
 async function boot(){
   document.getElementById('fWindow').value=String(state.window);
@@ -593,7 +588,6 @@ async function boot(){
     try{ await tableau.extensions.initializeAsync(); await loadFromTableau(); }
     catch(e){ console.warn('Capacity extension: using sample data —', e && e.message); }
   }
-  initTrendCampus();
   render();
 }
 boot();
