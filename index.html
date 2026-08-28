@@ -41,6 +41,8 @@
   .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px}
   .seg button{font:inherit;font-size:13px;font-weight:600;color:var(--text-2);cursor:pointer;background:transparent;border:0;border-radius:7px;padding:7px 13px}
   .seg button[aria-selected="true"]{background:var(--surface-1);color:var(--text-1);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .chk{display:none;align-items:center;align-self:center;gap:7px;font-size:13px;color:var(--text-1);cursor:pointer}
+  .chk input{width:15px;height:15px;accent-color:var(--prime);cursor:pointer;margin:0}
   .window-note{color:var(--muted);font-size:12px;margin:-6px 0 16px;padding-left:2px}
   .window-note b{color:var(--text-2)}
 
@@ -137,6 +139,7 @@
         <option value="12">12-week average</option>
       </select>
     </div>
+    <label class="chk" id="primeOnlyField"><input type="checkbox" id="fPrimeOnly"> Prime services only</label>
     <div class="spacer"></div>
     <div class="field"><label>&nbsp;</label>
       <div class="seg" role="tablist">
@@ -336,7 +339,7 @@ function fullStreak(svcObj,weeksDesc){
 
 /* ---------------- state ---------------- */
 let MODEL = buildModel(RECORDS);
-const state = {window:4, view:'grid'};
+const state = {window:4, view:'grid', primeOnly:false};
 
 function sortedCampuses(){ return Object.keys(MODEL.campuses).sort((a,b)=>a.localeCompare(b)); }
 function sortedServices(c){ return Object.keys(c.services).sort((x,y)=>{ const kx=svcSortKey(x),ky=svcSortKey(y); return kx[0]-ky[0]||kx[1]-ky[1]||x.localeCompare(y); }); }
@@ -420,8 +423,9 @@ function renderTrend(){
 
   sortedCampuses().forEach(name=>{
     const c=MODEL.campuses[name];
-    const active=activeServices(c,weeks);
-    if(!active.length) return;   // skip campuses with nothing in the last 12 weeks
+    let active=activeServices(c,weeks);
+    if(state.primeOnly) active=active.filter(isPrime);
+    if(!active.length) return;   // skip campuses with nothing to show
     // Per-campus header: campus name in the label column, week dates across the top.
     const head=document.createElement('div'); head.className='trow head tcampus'; head.style.gridTemplateColumns=tmpl;
     head.innerHTML=`<div class="tlabel"><b class="cname">${name}</b> <span class="sub">${fmt(c.cap)} seats</span></div>`+weeks.map(w=>`<div class="tcell">${shortDate(w)}</div>`).join('');
@@ -437,7 +441,7 @@ function renderTrend(){
       row.innerHTML=cells; grid.appendChild(row);
     });
   });
-  if(!grid.children.length){ host.innerHTML='<p class="note">No services ran in the last 12 weeks.</p>'; return; }
+  if(!grid.children.length){ host.innerHTML='<p class="note">'+(state.primeOnly?'No prime services in the last 12 weeks.':'No services ran in the last 12 weeks.')+'</p>'; return; }
   host.appendChild(grid);
 }
 
@@ -492,11 +496,14 @@ function setView(v){
   document.getElementById('viewScore').classList.toggle('hidden',v!=='score');
   document.getElementById('viewTrend').classList.toggle('hidden',v!=='trend');
   document.getElementById('viewNet').classList.toggle('hidden',v!=='net');
-  // The window selector is only meaningful off the trend tab (the trend is always 12 weeks).
+  // The window selector is only meaningful off the trend tab (the trend is always 12 weeks);
+  // the "prime services only" toggle only applies to the trend heatmap.
   document.getElementById('windowField').style.display = v==='trend' ? 'none' : '';
+  document.getElementById('primeOnlyField').style.display = v==='trend' ? 'inline-flex' : 'none';
   render();
 }
 document.getElementById('fWindow').addEventListener('change',e=>{state.window=+e.target.value;render();});
+document.getElementById('fPrimeOnly').addEventListener('change',e=>{state.primeOnly=e.target.checked;render();});
 document.getElementById('tabGrid').addEventListener('click',()=>setView('grid'));
 document.getElementById('tabScore').addEventListener('click',()=>setView('score'));
 document.getElementById('tabTrend').addEventListener('click',()=>setView('trend'));
