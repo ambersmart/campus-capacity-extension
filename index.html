@@ -549,6 +549,7 @@ async function readRecords(ws){
   }
   return records;
 }
+const wired=new Set();   // worksheets we've already attached the change-listener to
 async function loadFromTableau(){
   const dash=tableau.extensions.dashboardContent.dashboard;
   // Prefer a sheet whose columns include Campus + Service + Attendance.
@@ -582,8 +583,15 @@ async function loadFromTableau(){
   if(!recs.length) throw new Error('The worksheet returned no Campus/Service rows.');
   RECORDS=recs; MODEL=buildModel(RECORDS);
 
-  // Stay live: redraw when the sheet's data changes.
-  try{ chosen.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh); }catch(e){}
+  // Stay live: redraw when the sheet's data changes — but attach the listener only
+  // ONCE per sheet. (refresh() calls this function again, so re-adding here would
+  // multiply listeners on every change and make the dashboard flicker/glitch.)
+  try{
+    if(!wired.has(chosen.name)){
+      chosen.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh);
+      wired.add(chosen.name);
+    }
+  }catch(e){}
 }
 
 let refreshing=false;
