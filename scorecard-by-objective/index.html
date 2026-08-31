@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Goal Metrics — Executive Scorecard</title>
+<!-- Official Tableau Extensions API library (saved locally so it always loads) -->
+<script src="tableau.extensions.1.latest.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#1c1c1c; --muted:#6b6b6b; --line:#eceae5;
+    --track:#e9e6e0; --tick:#b9b4ab;
+    --red:#d23140; --red-bg:#fbe6e8; --red-ink:#c02434;
+    --amber:#e6a52e; --amber-bg:#fbf1dc; --amber-ink:#b77d16;
+    --green:#3f9d5a; --green-bg:#e4f2e8; --green-ink:#2f7e46;
+    --card:#ffffff; --card-line:#e7e4df; --sel:#d23140;
+    --title:#2b2b2b; --sub:#8a6a3a;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font);}
+  .wrap{padding:18px 22px 28px;}
+  h1{font-size:20px;margin:0 0 4px;color:var(--title);font-weight:700;letter-spacing:-.2px;}
+  .sub{font-size:12.5px;color:var(--sub);margin:0 0 10px;}
+  .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--card-line);
+    border-radius:14px;padding:3px 10px;font-size:11px;color:#555;background:#fbfaf8;}
+  .badge::before{content:"◆";color:#9a9a9a;font-size:9px;}
+
+  .grid{display:grid;grid-template-columns:1.9fr 1fr;gap:18px;margin-top:12px;align-items:start;}
+  @media (max-width:920px){.grid{grid-template-columns:1fr;}}
+
+  .panel{border:1px solid var(--card-line);border-radius:12px;background:var(--card);overflow:hidden;}
+  .panel-detail{border-left:4px solid var(--sel);}
+  .p-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
+  .p-head .t{font-size:12px;letter-spacing:.6px;color:#8a8a8a;font-weight:700;text-transform:uppercase;}
+  select{font-family:var(--font);font-size:12px;border:1px solid var(--card-line);border-radius:8px;
+    padding:6px 8px;background:#fff;color:#333;cursor:pointer;}
+  select:focus, select:focus-visible{outline:none;border-color:#b9b4ab;box-shadow:0 0 0 2px rgba(0,0,0,.06);}
+  .controls{display:flex;gap:8px;align-items:center;}
+  .hint{background:#f2f7fd;border-top:1px solid #e6eef8;border-bottom:1px solid #e6eef8;
+    color:#2f6bbf;font-size:12px;padding:8px 16px;display:flex;justify-content:space-between;}
+  .hint::before{content:"➤ ";}
+
+  table{width:100%;border-collapse:collapse;}
+  thead th{font-size:10.5px;letter-spacing:.5px;color:#9a9a9a;text-transform:uppercase;font-weight:700;
+    text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);}
+  thead th.num{text-align:right;} thead th.ctr{text-align:center;}
+  tbody tr{cursor:pointer;border-bottom:1px solid #f4f2ee;}
+  tbody tr:hover{background:#faf9f6;}
+  tbody tr.grouphdr, tbody tr.grouphdr:hover{cursor:default;background:transparent;}
+  tbody tr.grouphdr td{background:#efe7db;color:var(--title);font-size:13.5px;font-weight:800;
+    letter-spacing:.3px;padding:12px 12px;border-top:2px solid #ddd0ba;border-bottom:1px solid var(--line);}
+  tbody tr.grouphdr td .ghd{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  tbody tr.grouphdr td .gname{display:flex;align-items:center;}
+  tbody tr.grouphdr td .gcount{font-size:11px;font-weight:700;color:var(--muted);background:#fff;
+    border:1px solid var(--card-line);border-radius:11px;padding:2px 9px;white-space:nowrap;}
+  tbody tr.sel{background:#fdf0f1;}
+  tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--sel);}
+  td{padding:11px 8px;vertical-align:middle;font-size:13px;}
+  .metric{font-weight:600;color:#222;line-height:1.15;}
+  .owner{font-size:11px;color:#9a9a9a;margin-top:2px;}
+  .bar{position:relative;height:8px;background:var(--track);border-radius:5px;width:150px;}
+  .bar>span{position:absolute;left:0;top:0;bottom:0;border-radius:5px;}
+  .bar>i{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--tick);}
+  .cur{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .cur b{font-weight:700;color:#222;} .cur .goal{color:#a3a3a3;font-weight:400;}
+  .pct{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+  .st{text-align:center;}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+    padding:3px 10px;border-radius:12px;white-space:nowrap;}
+  .pill.red{background:var(--red-bg);color:var(--red-ink);}
+  .pill.amber{background:var(--amber-bg);color:var(--amber-ink);}
+  .pill.green{background:var(--green-bg);color:var(--green-ink);}
+
+  /* detail card */
+  .d-body{padding:4px 18px 18px;}
+  .d-tag{font-size:11px;letter-spacing:.5px;color:#9a9a9a;text-transform:uppercase;font-weight:700;padding:14px 18px 0;}
+  .d-tag small{color:#c4c4c4;font-weight:600;text-transform:none;letter-spacing:0;}
+  .d-name{font-size:18px;font-weight:700;color:#222;padding:2px 18px 0;}
+  .d-owner{font-size:12px;color:#8a8a8a;padding:2px 18px 8px;}
+  .d-owner .stat{font-weight:700;}
+  .stats{display:flex;gap:18px;padding:6px 18px 2px;flex-wrap:wrap;}
+  .stat b{display:block;font-size:22px;font-weight:800;color:#1c1c1c;line-height:1;font-variant-numeric:tabular-nums;}
+  .stat span{display:block;font-size:9.5px;letter-spacing:.5px;color:#9a9a9a;text-transform:uppercase;margin-top:5px;font-weight:700;}
+  .miniprog{height:8px;background:var(--track);border-radius:5px;margin:12px 18px 6px;position:relative;}
+  .miniprog>span{position:absolute;left:0;top:0;bottom:0;border-radius:5px;}
+  .legend{display:flex;gap:16px;padding:4px 18px 6px;font-size:11px;color:#777;}
+  .legend i{display:inline-block;width:16px;height:0;border-top:2px solid var(--red);vertical-align:middle;margin-right:5px;}
+  .legend .dash i{border-top:2px dashed #a9a9a9;}
+  svg{display:block;width:100%;height:auto;padding:2px 6px;}
+  .lead{padding:10px 18px 6px;border-top:1px solid var(--line);margin-top:8px;}
+  .lead .lt{font-size:11px;letter-spacing:.5px;color:#9a9a9a;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
+  .lead .row{margin-bottom:12px;}
+  .lead .row .l{font-size:12.5px;color:#444;margin-bottom:5px;}
+  .dots{display:flex;gap:3px;align-items:center;}
+  .dots i{width:12px;height:9px;border-radius:2px;background:#e0ddd6;}
+  .dots i.on{background:#4a4a4a;}
+  .dots .v{margin-left:8px;font-size:12px;color:#555;font-weight:600;}
+  .lbar{height:9px;background:var(--track);border-radius:5px;position:relative;max-width:150px;}
+  .lbar>span{position:absolute;left:0;top:0;bottom:0;background:#4a4a4a;border-radius:5px;}
+  .lbar-wrap{display:flex;align-items:center;gap:10px;}
+  .lbar-wrap .v{font-size:12px;color:#555;font-weight:600;}
+  .foot{font-size:11px;color:#b0b0b0;padding:14px 22px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title">Goal Metrics — Executive Dashboard</h1>
+  <div class="sub" id="subtitle">How the organization is tracking toward its goals</div>
+  <span class="badge" id="badge" style="display:none"></span>
+
+  <div class="grid">
+    <!-- LEFT: scorecard -->
+    <div class="panel">
+      <div class="p-head">
+        <div class="t">Goal Metrics — Scorecard</div>
+        <div class="controls">
+          <select id="objective" style="display:none"><option value="__all">All objectives</option></select>
+        </div>
+      </div>
+      <div class="hint">Click any metric row to load it in the detail card <span>→</span></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Objective</th>
+            <th class="ctr">Progress to Goal</th>
+            <th class="num">Current</th>
+            <th class="num">%</th>
+            <th class="ctr">Status</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <!-- RIGHT: detail -->
+    <div class="panel panel-detail">
+      <div class="d-tag">Selected metric · <small>click a row to change</small></div>
+      <div class="d-name" id="d-name">—</div>
+      <div class="d-owner"><span id="d-owner"></span> · <span id="d-status"></span></div>
+      <div class="stats" id="d-stats"></div>
+      <div class="miniprog"><span id="d-mini"></span></div>
+      <div class="legend"><span><i id="legend-actual"></i>Actual (outcome)</span><span class="dash"><i></i>Goal pace</span></div>
+      <div id="chart"></div>
+      <div class="lead" id="lead"></div>
+    </div>
+  </div>
+  <div class="foot" id="foot">Sample data — load a worksheet to see live numbers.</div>
+</div>
+
+<script>
+/* ---------- Sample data (GENERIC placeholders — no real names or client metrics).
+   Only shown as a preview before live worksheet data loads. ---------- */
+const SAMPLE = [
+  {name:"Metric One",      objective:"Objective A", owner:"Owner A · Owner B", current:563, goal:1000, baseline:425, status:"Off track", progress:24, expected:50},
+  {name:"Metric Two",      objective:"Objective A", owner:"Owner A",           current:3,   goal:12,   baseline:0,  status:"Off track", progress:25, expected:50},
+  {name:"Metric Three",    objective:"Objective A", owner:"Owner C · Owner D", current:8,   goal:30,   baseline:0,  status:"Off track", progress:27, expected:50},
+  {name:"Metric Four",     objective:"Objective A", owner:"Owner E",           current:47,  goal:115,  baseline:20, status:"Off track", progress:28, expected:50},
+  {name:"Metric Five",     objective:"Objective B", owner:"Owner C · Owner F", current:4,   goal:12,   baseline:0,  status:"Off track", progress:30, expected:50},
+  {name:"Metric Six",      objective:"Objective B", owner:"Owner G",           current:10.2,goal:13.1, baseline:8,  status:"Off track", unit:"%",   progress:30, expected:50},
+  {name:"Metric Seven",    objective:"Objective B", owner:"Owner C · Owner H", current:5,   goal:15,   baseline:0,  status:"Off track", progress:33, expected:50},
+  {name:"Metric Eight",    objective:"Objective B", owner:"Owner A · Owner B", current:1760,goal:3000, baseline:0,  status:"At risk",   progress:38, expected:50},
+  {name:"Metric Nine",     objective:"Objective C", owner:"Owner A · Owner B", current:320, goal:800,  baseline:0,  status:"At risk",   progress:40, expected:50},
+  {name:"Metric Ten",      objective:"Objective C", owner:"Owner I · Owner A", current:2000,goal:5000, baseline:0,  status:"At risk",   progress:40, expected:50},
+  {name:"Metric Eleven",   objective:"Objective C", owner:"Owner C · Owner F", current:20,  goal:50,   baseline:0,  status:"At risk",   progress:40, expected:50},
+  {name:"Metric Twelve",   objective:"Objective C", owner:"Owner A",           current:4969,goal:6000, baseline:0,  status:"At risk",   progress:42, expected:50},
+  {name:"Metric Thirteen", objective:"Objective C", owner:"Owner J",           current:5117,goal:6000, baseline:0,  status:"At risk",   progress:43, expected:50}
+];
+const SAMPLE_LEADS = {
+  "Metric One":[
+    {label:"Lead measure 1", type:"dots", current:2, goal:9},
+    {label:"Lead measure 2", type:"bar", current:180, goal:600}
+  ]
+};
+
+/* ---------- Status logic ---------- */
+// Progress may arrive as a fraction (0.24) or a whole-number percent (24, 6, 1).
+// Values below 1 are treated as fractions; 1 and up are treated as percents.
+function normProgress(v){ v=+v; if(isNaN(v)) return 0; return (v>0 && v<1) ? v*100 : v; }
+function pctOf(d){
+  if(d.progress!=null && d.progress!=="") return Math.round(normProgress(d.progress)); // your "Progress to Goal"
+  // No Progress-to-Goal value: only compute from a REAL current; otherwise 0 (never negative).
+  const span = d.goal - (d.baseline||0);
+  if(d.current>0 && span>0) return Math.round(((d.current-(d.baseline||0))/span)*100);
+  return 0;
+}
+// "% behind pace": actual progress vs Expected Progress (or a direct Pace Ratio).
+function behindPace(d){
+  if(d.pace!=null && d.pace!=="") return Math.round(100 - (d.pace>1.5 ? d.pace : d.pace*100));
+  const exp = d.expected!=null ? normProgress(d.expected) : null;
+  if(exp && exp>0) return Math.round(100 - (pctOf(d)/exp)*100);
+  return null;
+}
+// Use the real Metric Status text when it's recognizable; otherwise derive from %.
+function resolveStatus(d){
+  const raw = (d.status||"").toLowerCase();
+  if(/off\s*track/.test(raw))        return {label:d.status, cls:"red"};
+  if(/at\s*risk|risk/.test(raw))     return {label:d.status, cls:"amber"};
+  if(/on\s*track|ahead/.test(raw))   return {label:d.status, cls:"green"};
+  const s = statusFromPct(pctOf(d));
+  return {label:s, cls:statusClass(s)};
+}
+function statusClass(s){
+  s=(s||"").toLowerCase();
+  if(s.includes("off")) return "red";
+  if(s.includes("risk")) return "amber";
+  if(s.includes("track")||s.includes("on")) return "green";
+  return "red";
+}
+function statusFromPct(p){ return p<35?"Off track":p<60?"At risk":"On track"; }
+function statusIcon(cls){ return cls==="red"?"▼":cls==="amber"?"◆":"▲"; }
+function barColor(cls){ return cls==="red"?"var(--red)":cls==="amber"?"var(--amber)":"var(--green)"; }
+function statusBg(cls){ return cls==="red"?"var(--red-bg)":cls==="amber"?"var(--amber-bg)":"var(--green-bg)"; }
+function fmt(n){
+  if(n==null || (typeof n==="number" && isNaN(n))) return "—";
+  if(n%1!==0) return n.toLocaleString(undefined,{maximumFractionDigits:1});
+  return n.toLocaleString();
+}
+
+let DATA = SAMPLE.slice();
+let VIEW = [];           // DATA after the Objective filter + sort — what actually renders
+let LEADS = SAMPLE_LEADS;
+let TREND = {};          // metricName -> [{ord, value}] real monthly points
+let AXIS_START = 8;      // month ordinal (0=Jan) the chart axis begins on; 8 = Sep default
+let lastTrendDiag = "";  // why the most recent trend-sheet attempt did/didn't work
+let selected = 0;
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/* ---------- Objective filter ---------- */
+function renderObjectiveOptions(){
+  const sel = document.getElementById("objective"); if(!sel) return;
+  const objs = [...new Set(DATA.map(d=>d.objective).filter(Boolean))].sort();
+  const keep = sel.value;
+  sel.innerHTML = '<option value="__all">All objectives</option>'
+    + objs.map(o=>`<option value="${o.replace(/"/g,'&quot;')}">${o}</option>`).join("");
+  sel.value = [...sel.options].some(o=>o.value===keep) ? keep : "__all";
+  sel.style.display = objs.length ? "" : "none";   // hide until an Objective field exists
+}
+
+/* ---------- Render scorecard (grouped by objective, no sorting) ---------- */
+const GROUP_NONE = "(No objective)";
+function objKey(d){ return d.objective && d.objective.trim() ? d.objective : GROUP_NONE; }
+function buildView(){
+  const objSel = document.getElementById("objective");
+  const obj = objSel ? objSel.value : "__all";
+  const rows = DATA.filter(d => obj==="__all" || d.objective===obj);
+
+  // Bucket metrics by objective, preserving the order they arrive in from the worksheet
+  // (which reflects your manual sort in Sheet 2).
+  const order = [], buckets = {}, groupSort = {};
+  const hasSort = rows.some(d => d.sort!=null && !isNaN(d.sort));
+  for(const d of rows){
+    const k = objKey(d);
+    if(!(k in buckets)){ buckets[k] = []; order.push(k); groupSort[k] = Infinity; }
+    buckets[k].push(d);
+    if(hasSort && d.sort!=null && d.sort < groupSort[k]) groupSort[k] = d.sort;  // objective rank = its smallest Sort
+  }
+
+  if(hasSort){
+    // Explicit Sort field wins: order objectives by rank, metrics within by Sort.
+    order.sort((a,b)=> (groupSort[a] ?? Infinity) - (groupSort[b] ?? Infinity));
+    for(const k of order) buckets[k].sort((x,y)=> (x.sort ?? Infinity) - (y.sort ?? Infinity));
+  }else{
+    // No Sort field: keep the worksheet's order, but push the "no objective" group last.
+    const i = order.indexOf(GROUP_NONE);
+    if(i>=0){ order.splice(i,1); order.push(GROUP_NONE); }
+  }
+
+  VIEW = order.flatMap(k => buckets[k]);
+  if(selected >= VIEW.length) selected = 0;
+}
+function renderRows(){
+  buildView();
+  const tb = document.getElementById("rows");
+  tb.innerHTML = "";
+  const showGroups = VIEW.some(d => d.objective && d.objective.trim());  // only group if objectives exist
+  const counts = {};
+  VIEW.forEach(d => { const k = objKey(d); counts[k] = (counts[k]||0) + 1; });
+  let lastGroup = null;
+  VIEW.forEach((d,i)=>{
+    const g = objKey(d);
+    if(showGroups && g !== lastGroup){
+      const hr = document.createElement("tr");
+      hr.className = "grouphdr";
+      const n = counts[g];
+      hr.innerHTML = `<td colspan="5"><div class="ghd"><span class="gname">${g}</span><span class="gcount">${n} metric${n===1?"":"s"}</span></div></td>`;
+      tb.appendChild(hr);
+      lastGroup = g;
+    }
+    const p = pctOf(d);
+    const {label:st, cls} = resolveStatus(d);
+    const unit = d.unit||"";
+    const tr = document.createElement("tr");
+    const isSel = i===selected;
+    if(isSel){ tr.className="sel"; tr.style.background = statusBg(cls); }
+    const lineStyle = isSel ? `box-shadow:inset 3px 0 0 ${barColor(cls)}` : "";
+    const indent = showGroups ? "padding-left:28px;" : "";   // nest metrics under their objective
+    // Pace marker: where this metric SHOULD be today (Expected Progress). Hidden if unknown.
+    const exp = d.expected!=null ? Math.max(0, Math.min(100, normProgress(d.expected))) : null;
+    const tick = exp!=null ? `<i style="left:${exp}%" title="Expected pace: ${Math.round(exp)}%"></i>` : "";
+    tr.innerHTML = `
+      <td style="${lineStyle};${indent}"><div class="metric">${d.name}</div><div class="owner">${d.owner||""}</div></td>
+      <td><div style="display:flex;justify-content:center"><div class="bar" title="Bar = actual ${p}% · marker = expected pace">
+        <span style="width:${Math.min(p,100)}%;background:${barColor(cls)}"></span>${tick}</div></div></td>
+      <td class="cur"><b>${fmt(d.current)}${unit}</b> <span class="goal">/ ${fmt(d.goal)}${unit}</span></td>
+      <td class="pct" style="color:${barColor(cls)}">${p}%</td>
+      <td class="st"><span class="pill ${cls}">${statusIcon(cls)} ${st}</span></td>`;
+    tr.onclick = ()=>{ selected=i; renderRows(); renderDetail(); };
+    tb.appendChild(tr);
+  });
+}
+
+/* ---------- Render detail card ---------- */
+function renderDetail(){
+  const d = VIEW[selected] || DATA[selected]; if(!d) return;
+  const p = pctOf(d);
+  const {label:st, cls} = resolveStatus(d);
+  const unit = d.unit||"";
+  const panel = document.querySelector(".panel-detail");
+  if(panel) panel.style.borderLeftColor = barColor(cls);   // match status color
+  const la = document.getElementById("legend-actual");
+  if(la) la.style.borderTopColor = barColor(cls);          // legend line matches status too
+  document.getElementById("d-name").textContent = d.name;
+  document.getElementById("d-owner").textContent = "Owner: " + (d.owner||"—");
+  const stEl = document.getElementById("d-status");
+  stEl.innerHTML = `<span style="color:${barColor(cls)};font-weight:700">${statusIcon(cls)} ${st}</span>`;
+
+  const behind = behindPace(d);
+  const paceLabel = behind==null ? "of the way to goal"
+                  : behind>0 ? behind+"% behind pace"
+                  : (-behind)+"% ahead of pace";
+  document.getElementById("d-stats").innerHTML = `
+    <div class="stat"><b>${fmt(d.current)}${unit}</b><span>Current</span></div>
+    <div class="stat"><b>${fmt(d.goal)}${unit}</b><span>Annual Goal</span></div>
+    <div class="stat"><b>${fmt(d.baseline)}${unit}</b><span>Baseline</span></div>
+    <div class="stat"><b>${p}%</b><span>${paceLabel}</span></div>`;
+  document.getElementById("d-mini").style.width = Math.min(p,100)+"%";
+  document.getElementById("d-mini").style.background = barColor(cls);
+
+  renderChart(d, cls);
+  renderLead(d);
+}
+
+/* ---------- Line chart (SVG, no libs) ---------- */
+function renderChart(d, cls){
+  const W=360,H=170,padL=34,padR=14,padT=10,padB=22,N=12;
+  const col = barColor(cls);
+  const base=+d.baseline||0, goal=+d.goal||1, cur=+d.current||0;
+  const trend = TREND[d.name] && TREND[d.name].length ? TREND[d.name] : null;
+
+  // Real monthly points, placed at their offset from the axis start. Empty if no trend data.
+  const actual = trend
+    ? trend.map(p => ({ i: Math.max(0, Math.min(N-1, p.ord - AXIS_START)), v: p.value })).sort((a,b)=>a.i-b.i)
+    : [];
+  const lastI = actual.length ? actual[actual.length-1].i : 0;
+  const vals = actual.map(a=>a.v);
+  const yMax = Math.max(goal, cur, ...vals) * 1.07;
+  const yMin = Math.min(base, cur, ...vals) * 0.9;
+  const x = i => padL + (W-padL-padR)*(i/(N-1));
+  const y = v => padT + (H-padT-padB)*(1-(v-yMin)/(yMax-yMin||1));
+
+  // month axis labels from AXIS_START
+  const months = Array.from({length:N}, (_,i)=> MON[(AXIS_START + i) % 12]);
+
+  const gridY=[yMin,(yMin+yMax)/2,yMax];
+  let grid="";
+  gridY.forEach(g=>{grid+=`<line x1="${padL}" y1="${y(g)}" x2="${W-padR}" y2="${y(g)}" stroke="#eee"/>`
+    +`<text x="${padL-6}" y="${y(g)+3}" text-anchor="end" font-size="8" fill="#b7b7b7">${Math.round(g).toLocaleString()}</text>`;});
+  let xlab="";
+  months.forEach((m,i)=>{ if(i%2===0) xlab+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="8" fill="#b7b7b7">${m}</text>`;});
+
+  // Actual line + end dot ONLY when we have real monthly data; otherwise an honest note.
+  let actualLayer;
+  if(actual.length){
+    const act = actual.map((a,idx)=> (idx? " L":"M") + x(a.i).toFixed(1) + " " + y(a.v).toFixed(1)).join("");
+    actualLayer = `<path d="${act}" fill="none" stroke="${col}" stroke-width="2.4"/>`
+      + `<circle cx="${x(lastI)}" cy="${y(actual[actual.length-1].v)}" r="3.2" fill="${col}"/>`;
+  }else{
+    actualLayer = `<text x="${(padL+W-padR)/2}" y="${(padT+H-padB)/2}" text-anchor="middle" font-size="10" fill="#b7b7b7">No monthly data for this metric yet</text>`;
+  }
+
+  document.getElementById("chart").innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Progress vs goal pace">
+      ${grid}
+      <line x1="${x(0)}" y1="${y(base)}" x2="${x(N-1)}" y2="${y(goal)}"
+        stroke="#a9a9a9" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <circle cx="${x(N-1)}" cy="${y(goal)}" r="3" fill="#fff" stroke="#8a8a8a"/>
+      <text x="${x(N-1)-4}" y="${y(goal)-6}" text-anchor="end" font-size="8" fill="#8a8a8a">goal ${goal.toLocaleString()}</text>
+      ${actualLayer}
+      ${xlab}
+    </svg>`;
+}
+
+/* ---------- Lead metrics ---------- */
+function renderLead(d){
+  const leads = LEADS[d.name];
+  const el = document.getElementById("lead");
+  if(!leads || !leads.length){ el.innerHTML=""; el.style.display="none"; return; }
+  el.style.display="block";
+  let html = `<div class="lt">Lead Metrics</div>`;
+  leads.forEach(L=>{
+    if(L.type==="dots"){
+      let dots="";
+      for(let i=0;i<L.goal;i++) dots+=`<i class="${i<L.current?'on':''}"></i>`;
+      html+=`<div class="row"><div class="l">${L.label}</div><div class="dots">${dots}<span class="v">${L.current} / ${L.goal}</span></div></div>`;
+    } else {
+      const w=Math.min(100,Math.round(L.current/L.goal*100));
+      html+=`<div class="row"><div class="l">${L.label}</div><div class="lbar-wrap"><div class="lbar"><span style="width:${w}%"></span></div><span class="v">${L.current.toLocaleString()} / ${L.goal.toLocaleString()}</span></div></div>`;
+    }
+  });
+  el.innerHTML = html;
+}
+
+/* ---------- Boot: try Tableau, else sample ---------- */
+document.getElementById("objective").addEventListener("change", ()=>{ selected=0; renderRows(); renderDetail(); });
+
+function boot(){
+  renderObjectiveOptions();
+  renderRows();
+  renderDetail();
+}
+
+// Status lines live in the FOOTER now, not the header.
+let liveMsg = "", trendMsg = "";
+function updateFoot(){
+  const f = document.getElementById("foot"); if(!f) return;
+  f.textContent = [liveMsg, trendMsg].filter(Boolean).join("      ·      ");
+}
+function markLive(sheetName){ liveMsg = "Live — " + sheetName; updateFoot(); }
+
+/* Map worksheet columns to our fields.
+   Tries an EXACT field-name match first (your real names), then a fuzzy fallback. */
+const _norm = s => (s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+function findCol(cols, exacts, fuzzies){
+  for(const e of exacts){
+    const i = cols.findIndex(c=>_norm(c.fieldName)===_norm(e));
+    if(i>=0) return i;
+  }
+  for(const f of (fuzzies||[])){
+    const i = cols.findIndex(c=>_norm(c.fieldName).includes(f));
+    if(i>=0) return i;
+  }
+  return -1;
+}
+// Which scorecard slot does a measure name map to? Order matters (specific first).
+function slotFor(measureName){
+  const n = _norm(measureName);
+  if(n.includes("expected"))                       return "expected";
+  if(n.includes("progresstogoal") || (n.includes("progress") && n.includes("goal"))) return "progress";
+  if(n.includes("annual") || n.includes("target")) return "goal";
+  if(n.includes("baseline") || n.includes("start"))return "baseline";
+  if(n.includes("current") || n.includes("actual"))return "current";
+  if(n.includes("pace"))                           return "pace";
+  if(n.includes("goal"))                           return "goal";
+  if(n.includes("progress"))                       return "progress";
+  return null;
+}
+const _num = v => { const f = parseFloat(String(v==null?"":v).replace(/[^0-9.\-]/g,"")); return isNaN(f)?0:f; };
+
+async function loadWorksheet(ws){
+  const dt = await ws.getSummaryDataAsync({maxRows:4000});
+  const cols = dt.columns;
+  const nameI   = findCol(cols, ["Metric Category1","Metric Category","Metric"], ["metriccategory","metric","category","name"]);
+  const ownerI  = findCol(cols, ["Owner"], ["owner","lead"]);
+  const collabI = findCol(cols, ["Collaborator"], ["collaborator","collab"]);
+  const statusI = findCol(cols, ["Metric Status","AGG(Metric Status)","Status"], ["metricstatus","status"]);
+  const objI    = findCol(cols, ["Objective"], ["objective"]);
+  const sortI   = findCol(cols, ["Sort","Sort Order","Objective Sort","Order"], ["sortorder","objectivesort","sortkey","sort"]);
+  const mnI     = findCol(cols, ["Measure Names"], ["measurenames"]);
+  const mvI     = findCol(cols, ["Measure Values"], ["measurevalues"]);
+  if(nameI < 0) return false;
+  // A sheet with a "Lead Metric" field is a leads sheet, not the main scorecard.
+  if(findCol(cols, ["Lead Metric","Lead Metric Name","Lead Name"], ["leadmetric","leadname"]) >= 0) return false;
+
+  const txt = (r,i) => i>=0 && r[i]!=null ? r[i].formattedValue : "";
+  const rawNum = (r,i) => {
+    if(i<0 || r[i]==null) return null;
+    const v = r[i].value!=null ? +r[i].value : _num(r[i].formattedValue);
+    return isNaN(v) ? null : v;   // treat null/"Null"/blank measures as "no value"
+  };
+
+  const map = new Map();
+  function ensure(r){
+    const key = txt(r, nameI) || "—";
+    if(!map.has(key)){
+      map.set(key, {
+        name:key,
+        owner:[txt(r,ownerI), txt(r,collabI)].filter(Boolean).join(" · "),
+        status: txt(r,statusI),
+        objective: txt(r,objI),
+        sort: rawNum(r,sortI),   // optional numeric sort field
+        current:null, goal:null, baseline:null, progress:null, expected:null, pace:null
+      });
+    }
+    const rec = map.get(key);
+    if(!rec.status) rec.status = txt(r,statusI);
+    if(!rec.objective) rec.objective = txt(r,objI);
+    if(rec.sort==null) rec.sort = rawNum(r,sortI);
+    return rec;
+  }
+
+  if(mnI>=0 && mvI>=0){
+    // LONG / "melted" format: one row per (metric, measure). Un-stack it.
+    for(const r of dt.data){
+      const rec = ensure(r);
+      const slot = slotFor(txt(r, mnI));
+      if(slot){ const v = rawNum(r, mvI); if(v!=null) rec[slot] = v; }
+    }
+  } else {
+    // WIDE format: each measure is its own column.
+    const wide = {
+      current: findCol(cols, ["Current Value","Current"], ["currentvalue","actual"]),
+      goal:    findCol(cols, ["Annual Goal","Goal","Target"], ["annualgoal","target","goal"]),
+      baseline:findCol(cols, ["Baseline"], ["baseline","start"]),
+      progress:findCol(cols, ["Progress to Goal"], ["progresstogoal","progress"]),
+      expected:findCol(cols, ["Expected Progress"], ["expectedprogress","expected"]),
+      pace:    findCol(cols, ["Pace Ratio"], ["paceratio","pace"])
+    };
+    for(const r of dt.data){
+      const rec = ensure(r);
+      for(const k in wide){ if(wide[k]>=0){ const v=rawNum(r,wide[k]); if(v!=null) rec[k]=v; } }
+    }
+  }
+
+  // Current comes straight from the data's Current Value. No value entered => 0 (not derived).
+  const rows = [...map.values()].map(d=>{
+    if(d.baseline==null || isNaN(d.baseline)) d.baseline = 0;   // blank baseline => 0
+    if(d.current==null || isNaN(d.current))   d.current = 0;    // no Current Value yet => 0
+    return d;
+  }).filter(d => d.goal!=null && !isNaN(d.goal));   // a metric is only valid if it has a real goal
+
+  if(!rows.length) return false;
+  DATA = rows; LEADS = {}; selected = 0;
+  markLive(ws.name);
+  boot();
+  return true;
+}
+
+/* Read a "Lead Metrics" worksheet and attach each lead to its parent metric.
+   Expected fields: Parent Metric (matches Metric Category1), Lead Metric (name),
+   Lead Current, Lead Goal. Handles both plain columns and Measure Names/Values. */
+async function loadLeadsWorksheet(ws){
+  const dt = await ws.getSummaryDataAsync({maxRows:4000});
+  const cols = dt.columns;
+  const parentI = findCol(cols, ["Parent Metric","Metric Category1","Metric Category","Metric"], ["parentmetric","metriccategory","metric","category","parent"]);
+  const leadI   = findCol(cols, ["Lead Metric","Lead Metric Name","Lead Name"], ["leadmetric","leadname"]);
+  if(parentI < 0 || leadI < 0) return false;
+  const sortI = findCol(cols, ["Lead Sort","Sort","Sort Order","Order"], ["leadsort","sortorder","sortkey","sort"]);
+  const mnI = findCol(cols, ["Measure Names"], ["measurenames"]);
+  const mvI = findCol(cols, ["Measure Values"], ["measurevalues"]);
+  const txt = (r,i) => i>=0 && r[i]!=null ? r[i].formattedValue : "";
+  const rawNum = (r,i) => i>=0 && r[i]!=null ? (r[i].value!=null ? +r[i].value : _num(r[i].formattedValue)) : null;
+
+  const map = {}; // parent -> { leadName -> {label,current,goal,sort} }
+  const ensure = (parent,lead) => { (map[parent]=map[parent]||{}); return (map[parent][lead]=map[parent][lead]||{label:lead,current:null,goal:null,sort:null}); };
+
+  if(mnI>=0 && mvI>=0){
+    for(const r of dt.data){
+      const lead = txt(r,leadI); if(!lead) continue;
+      const rec = ensure(txt(r,parentI), lead);
+      if(rec.sort==null) rec.sort = rawNum(r,sortI);
+      const mn = _norm(txt(r,mnI)), v = rawNum(r,mvI);
+      if(mn.includes("goal") || mn.includes("target")) rec.goal = v;
+      else if(mn.includes("current") || mn.includes("actual") || mn.includes("value")) rec.current = v;
+    }
+  } else {
+    const curI  = findCol(cols, ["Lead Current","Current","Current Value"], ["leadcurrent","current","actual","value"]);
+    const goalI = findCol(cols, ["Lead Goal","Goal","Target"], ["leadgoal","goal","target"]);
+    for(const r of dt.data){
+      const lead = txt(r,leadI); if(!lead) continue;
+      const rec = ensure(txt(r,parentI), lead);
+      if(rec.sort==null) rec.sort = rawNum(r,sortI);
+      rec.current = rawNum(r,curI); rec.goal = rawNum(r,goalI);
+    }
+  }
+
+  const out = {}; let count = 0;
+  for(const parent in map){
+    let arr = Object.values(map[parent])
+      .filter(l => l.goal!=null && (l.label||"").trim()!=="" && _norm(l.label)!==_norm(parent)); // drop the parent-metric row
+    // Order leads by an explicit Sort field if present; otherwise keep the worksheet's order.
+    if(arr.some(l => l.sort!=null && !isNaN(l.sort))) arr.sort((a,b)=> (a.sort ?? Infinity) - (b.sort ?? Infinity));
+    out[parent] = arr.map(l=>{
+      const goal = l.goal||0, cur = l.current||0;
+      return {label:l.label, current:cur, goal:goal, type:(goal>0 && goal<=12) ? "dots" : "bar"};
+    });
+    count += out[parent].length;
+  }
+  if(!count) return false;
+  LEADS = out; renderDetail();
+  return true;
+}
+
+/* Read a "Trend" worksheet (Metric + Month + Actual) and plot real monthly points.
+   The chart line then ends exactly where the data ends. */
+async function loadTrendWorksheet(ws){
+  const dt = await ws.getSummaryDataAsync({maxRows:8000});
+  const cols = dt.columns;
+  const colDesc = cols.map(c=>`${c.fieldName}(${c.dataType})`).join(", ");
+  const parentI = findCol(cols, ["Parent Metric","Metric Category1","Metric Category","Metric"], ["parentmetric","metriccategory","metric","category","parent"]);
+  if(parentI < 0){ lastTrendDiag = `no metric field. Columns: [${colDesc}]`; return false; }
+  // Month = a date/datetime column (preferred), else a field named month/date/period.
+  let monthI = cols.findIndex(c => /date|datetime/i.test(c.dataType||""));
+  if(monthI < 0) monthI = findCol(cols, ["Month","Date","Period","Year Month"], ["month","date","period"]);
+  if(monthI < 0){ lastTrendDiag = `no date/month field. Columns: [${colDesc}]`; return false; }
+  // Value = Measure Values, else a field named Actual/Value, else first numeric non-key column.
+  const mvI = findCol(cols, ["Measure Values"], ["measurevalues"]);
+  let valI = mvI>=0 ? mvI : findCol(cols, ["Actual","Actual Value","Value","Amount"], ["actual","value","amount"]);
+  if(valI < 0) valI = cols.findIndex((c,idx)=> idx!==parentI && idx!==monthI && /int|float|real|number/i.test(c.dataType||""));
+  if(valI < 0){ lastTrendDiag = `no numeric value field. Columns: [${colDesc}]`; return false; }
+
+  const txt = (r,i) => i>=0 && r[i]!=null ? r[i].formattedValue : "";
+  const numAt = (r,i) => { if(i<0||r[i]==null) return null; const v = r[i].value!=null ? +r[i].value : _num(r[i].formattedValue); return isNaN(v)?null:v; };
+  const ordOf = (r) => {
+    const dv = r[monthI]; if(!dv) return null;
+    const raw = dv.value!=null ? dv.value : dv.formattedValue;
+    const dd = raw!=null ? new Date(raw) : null;
+    return (dd && !isNaN(dd.getTime())) ? dd.getFullYear()*12 + dd.getMonth() : null;
+  };
+
+  const map = {}; let minOrd = Infinity, sample = null;
+  for(const r of dt.data){
+    const parent = txt(r,parentI); if(!parent) continue;
+    const ord = ordOf(r), v = numAt(r,valI);
+    if(sample===null){ const dv=r[monthI]; sample = {raw: dv? (dv.value!=null?dv.value:dv.formattedValue) : null, ord, v}; }
+    if(ord==null || v==null) continue;
+    (map[parent] = map[parent] || []).push({ord, value:v});
+    if(ord < minOrd) minOrd = ord;
+  }
+  const keys = Object.keys(map);
+  if(!keys.length){
+    lastTrendDiag = `found month="${cols[monthI].fieldName}", value="${cols[valI].fieldName}" but 0 usable rows. `
+      + `First month value seen: "${sample?sample.raw:'—'}" → ${sample&&sample.ord!=null?'parsed OK':'could NOT parse as a date'}. `
+      + `If it won't parse, the Month field is text or a date-part, not a real date.`;
+    return false;
+  }
+  keys.forEach(k => map[k].sort((a,b)=>a.ord-b.ord));
+  TREND = map;
+  AXIS_START = isFinite(minOrd) ? minOrd : AXIS_START;   // absolute month ordinal the axis begins on
+  const pts = keys.reduce((n,k)=>n+map[k].length,0);
+  lastTrendDiag = `OK: ${keys.length} metrics, ${pts} points, axis starts ${MON[AXIS_START%12]}.`;
+  renderDetail();
+  return true;
+}
+
+function setFoot(msg){ document.getElementById("foot").textContent = msg; }
+function setTrendBadge(msg, ok){
+  trendMsg = ok ? ("Trend: " + msg) : ("Trend not loaded — " + msg);
+  updateFoot();
+}
+
+if(window.tableau && tableau.extensions){
+  tableau.extensions.initializeAsync().then(async ()=>{
+    boot(); // draw sample immediately
+    try{
+      const dash = tableau.extensions.dashboardContent.dashboard;
+      const sheets = dash.worksheets;
+      if(!sheets.length){ setFoot("Connected, but this dashboard has no worksheets on it. Add your metrics worksheet to the dashboard."); return; }
+
+      // Try EVERY worksheet; use the first one whose fields match the scorecard.
+      let matched = null, leadSheet = null;
+      const seen = [];
+      for(const ws of sheets){
+        let cols = [];
+        try{
+          const dt = await ws.getSummaryDataAsync({maxRows:1});
+          cols = dt.columns.map(c=>c.fieldName);
+        }catch(e){ seen.push(ws.name+" (no data)"); continue; }
+        seen.push(ws.name+" → ["+cols.join(", ")+"]");
+        if(!matched && await loadWorksheet(ws)){ matched = ws; }
+      }
+
+      // After the main scorecard loads, look for Lead Metrics and Trend sheets on the dashboard.
+      if(matched){
+        let trendSheet = null;
+        const trendTries = [];
+        for(const ws of sheets){
+          if(ws === matched) continue;
+          if(!leadSheet && await loadLeadsWorksheet(ws)){ leadSheet = ws; continue; }
+          if(!trendSheet){
+            lastTrendDiag = "no metric field.";
+            const ok = await loadTrendWorksheet(ws);
+            trendTries.push(`"${ws.name}": ${lastTrendDiag}`);
+            if(ok){ trendSheet = ws; continue; }
+          }
+        }
+        // SummaryDataChanged fires on ANY data change (filters, parameters, extract refresh
+        // redraws) — keeps the extension in sync without a manual reload.
+        const DATA_EVT = tableau.TableauEventType.SummaryDataChanged || tableau.TableauEventType.FilterChanged;
+        matched.addEventListener(DATA_EVT, async ()=>{
+          await loadWorksheet(matched);
+          if(leadSheet)  await loadLeadsWorksheet(leadSheet);
+          if(trendSheet) await loadTrendWorksheet(trendSheet);
+        });
+        if(leadSheet)  leadSheet.addEventListener(DATA_EVT, ()=>loadLeadsWorksheet(leadSheet));
+        if(trendSheet){
+          trendSheet.addEventListener(DATA_EVT, ()=>loadTrendWorksheet(trendSheet));
+          setTrendBadge(lastTrendDiag, true);
+        }else{
+          const detail = trendTries.length ? trendTries.join("  |  ") : "no other worksheet on the dashboard to read months from.";
+          setTrendBadge(detail, false);
+        }
+      }else{
+        setFoot("Connected, but no worksheet had Metric + Current Value + Annual Goal together. Sheets seen — " + seen.join("  |  "));
+      }
+    }catch(e){
+      setFoot("Connected to Tableau but hit an error reading data: " + (e && e.message ? e.message : e));
+    }
+  }).catch(err=>{
+    boot();
+    setFoot("Tableau library loaded but initialize failed: " + (err && err.message ? err.message : err));
+  });
+}else{
+  boot(); // opened directly in a browser (preview mode)
+  setFoot("Not running inside Tableau (or the Tableau library didn't load) — showing sample.");
+}
+</script>
+</body>
+</html>
