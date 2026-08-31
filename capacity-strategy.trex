@@ -7,7 +7,7 @@
     <author name="Smart Metrix Data" email="amber@smartmetrixdata.com" organization="Smart Metrix Data" website="https://www.smartmetrixdata.com"/>
     <min-api-version>1.4</min-api-version>
     <source-location>
-      <url>https://ambersmart.github.io/campus-capacity-extension/index.html</url>
+      <url>https://dashboards.smartmetrixdata.com/index.html</url>
     </source-location>
     <icon>iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMEAYDwppgWAAAAAElFTkSuQmCC</icon>
   </dashboard-extension>

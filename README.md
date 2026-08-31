@@ -45,13 +45,13 @@ naming differences still work):
 
 ## Hosted location (GitHub Pages)
 
-`capacity-strategy.trex` points to:
+`capacity-strategy.trex` points to the custom domain:
 
 ```
-https://ambersmart.github.io/campus-capacity-extension/index.html
+https://dashboards.smartmetrixdata.com/index.html
 ```
 
-Push this repo to GitHub and enable Pages (Settings → Pages → deploy from `main`). Edit → commit → push redeploys automatically.
+Hosted on GitHub Pages (repo `campus-capacity-extension`) with a custom domain (`CNAME` file → `dashboards.smartmetrixdata.com`; DNS `CNAME dashboards → ambersmart.github.io`). Using our own domain instead of the shared `ambersmart.github.io` keeps this dashboard isolated from any Safe Browsing flags on other pages of that domain. Edit → commit → push redeploys automatically.
 
 ## How to load it in Tableau Desktop
 
