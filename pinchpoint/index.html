@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Pinchpoint Dashboard</title>
+<!-- Official Tableau Extensions API library (saved locally so it always loads) -->
+<script src="tableau.extensions.1.latest.js"></script>
+<style>
+  .viz-root{
+    color-scheme:light;
+    --page:#f9f9f7; --surface-1:#fcfcfb; --surface-2:#f2f2ef;
+    --text-1:#0b0b0b; --text-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+    --blue-250:#86b6ef; --blue-450:#2a78d6; --blue-550:#1c5cab;
+    --good:#0ca30c; --warning:#fab219; --critical:#d03b3b; --nocap:#c3c2b7;
+  }
+  :root[data-theme="dark"] .viz-root{
+    color-scheme:dark;
+    --page:#0d0d0d; --surface-1:#1a1a19; --surface-2:#242422;
+    --text-1:#fff; --text-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+    --blue-250:#184f95; --blue-450:#3987e5; --blue-550:#86b6ef;
+    --good:#0ca30c; --warning:#fab219; --critical:#d03b3b; --nocap:#4a4a47;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  .viz-root{background:var(--page);color:var(--text-1);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;padding:22px;font-size:14px;line-height:1.45}
+  .wrap{max-width:1140px;margin:0 auto}
+  header.app{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  header.app h1{font-size:21px;margin:0 0 2px;letter-spacing:-.01em}
+  header.app p{margin:0;color:var(--text-2);font-size:13px}
+  .badge{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:3px 10px}
+  .theme-btn{cursor:pointer;font:inherit;font-size:12px;color:var(--text-2);background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-left:8px}
+  .filters{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:16px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .field select{font:inherit;font-size:13px;color:var(--text-1);background:var(--surface-1);border:1px solid var(--baseline);border-radius:8px;padding:7px 30px 7px 10px;min-width:160px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+  .spacer{flex:1 1 20px}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px}
+  .seg button{font:inherit;font-size:13px;font-weight:600;color:var(--text-2);cursor:pointer;background:transparent;border:0;border-radius:7px;padding:7px 14px}
+  .seg button[aria-selected="true"]{background:var(--surface-1);color:var(--text-1);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .card{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:16px}
+  .card h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 14px}
+  .hero{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  .hero .num{font-size:50px;font-weight:650;letter-spacing:-.02em;line-height:1}
+  .hero .lbl{color:var(--text-2);font-size:13px;margin-top:6px}
+  .hero .lbl b{color:var(--text-1)}
+  .hero .spark{flex:1 1 340px;min-width:280px;max-width:560px}
+  .hero .cap{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:4px}
+  .hlist{display:flex;flex-direction:column;gap:2px}
+  .hrow{display:grid;grid-template-columns:210px 92px minmax(120px,1fr) 92px;gap:14px;align-items:center;padding:9px 6px;border-radius:8px}
+  .hrow.cat{background:var(--surface-2)}
+  .hrow.leaf .name{padding-left:18px;color:var(--text-2)}
+  .hrow .name{font-weight:600;display:flex;align-items:center;gap:8px}
+  .hrow.leaf .name{font-weight:500}
+  .hrow .name .sub{color:var(--muted);font-weight:400;font-size:12px}
+  .hrow .val{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+  .hrow.leaf .val{font-weight:500}
+  .hrow .pct{text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2);font-size:13px}
+  .pbar{height:8px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+  .pbar>i{display:block;height:100%;background:var(--blue-450);border-radius:999px}
+  .hrow.leaf .pbar>i{background:var(--blue-250)}
+  .miniwrap{display:flex;align-items:center;gap:8px}
+  .dot{width:13px;height:13px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 2px var(--surface-1)}
+  .dot.green{background:var(--good)}.dot.yellow{background:var(--warning)}.dot.red{background:var(--critical)}.dot.unknown{background:var(--nocap)}
+  .hrow.cat .dot{box-shadow:0 0 0 2px var(--surface-2)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:2px 0 14px;color:var(--text-2);font-size:12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .svcs{padding:2px 6px 10px 24px;display:none}
+  .svcs.open{display:block}
+  .svcrow{display:grid;grid-template-columns:150px 132px minmax(120px,1fr) 62px 18px;gap:12px;align-items:center;padding:5px 0}
+  .svcrow .svcname{color:var(--text-2);font-size:13px}
+  .svcrow .cnt{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12.5px}
+  .svcrow .cnt b{color:var(--text-1)}
+  .meter{height:9px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+  .meter>i{display:block;height:100%;border-radius:999px}
+  .meter.green>i{background:var(--good)}.meter.yellow>i{background:var(--warning)}.meter.red>i{background:var(--critical)}.meter.unknown>i{background:var(--nocap)}
+  .util{font-variant-numeric:tabular-nums;text-align:right;font-size:13px;font-weight:600}
+  .caret{color:var(--muted);font-size:10px;transition:transform .15s;display:inline-block}
+  .caret.open{transform:rotate(90deg)}
+  .hrow.clickable{cursor:pointer}.hrow.clickable:hover{background:var(--surface-2)}
+  .note{color:var(--muted);font-size:12px;margin-top:14px;line-height:1.5}
+  .hidden{display:none!important}
+  .wk{color:var(--text-2);font-size:13px;margin-bottom:10px}
+  .wk b{color:var(--text-1)}
+</style>
+</head>
+<body>
+<div class="viz-root"><div class="wrap">
+  <header class="app">
+    <div>
+      <h1>Campus Pinchpoint Dashboard</h1>
+      <p>Average Weekly Attendance vs. room capacity</p>
+    </div>
+    <div style="display:flex;align-items:center">
+      <button class="theme-btn" id="themeBtn" type="button">&#9680; Theme</button>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="field"><label for="fCampus">Campus</label><select id="fCampus"></select></div>
+    <div class="field" id="wkndField"><label for="fWknd">Weekend</label><select id="fWknd"></select></div>
+    <div class="spacer"></div>
+    <div class="field"><label>&nbsp;</label>
+      <div class="seg" role="tablist">
+        <button id="tabAwa" role="tab" aria-selected="true">52-Week AWA</button>
+        <button id="tabWknd" role="tab" aria-selected="false">Weekend Stoplight</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="viewAwa">
+    <div class="card hero">
+      <div><div class="num" id="heroAwa">&mdash;</div>
+        <div class="lbl">Total AWA &middot; trailing 52 weeks &middot; <b id="heroCampus">&mdash;</b></div></div>
+      <div class="spark"><div id="heroSpark"></div>
+        <div class="cap"><span>52 weekends ago</span><span>most recent</span></div></div>
+    </div>
+    <div class="card">
+      <h2>AWA by ministry area &middot; share of total</h2>
+      <div class="hlist" id="awaList"></div>
+      <p class="note">AWA = trailing-52-week attendance &divide; non-excluded weekends. Share bars are % of Total AWA. Line shows weekly total attendance across the trailing 52 weekends.</p>
+    </div>
+  </section>
+
+  <section id="viewWknd" class="hidden">
+    <div class="card">
+      <div class="wk">Weekend of <b id="wkndDate">&mdash;</b> &middot; <b id="wkndCampus">&mdash;</b> &middot; each service compared to its <b>soft cap</b></div>
+      <div class="legend">
+        <span><i class="dot green"></i> Green &mdash; under soft cap</span>
+        <span><i class="dot yellow"></i> Yellow &mdash; approaching soft cap</span>
+        <span><i class="dot red"></i> Red &mdash; at / over</span>
+        <span><i class="dot unknown"></i> No capacity set</span>
+      </div>
+      <div class="hlist" id="wkndList"></div>
+      <p class="note">Row color rolls up as the worst service beneath it. Share column is % of that weekend's total attendance. Click an area for per-service capacity.</p>
+    </div>
+  </section>
+</div></div>
+
+<script>
+/* ------------------------------------------------------------------ *
+ * Fake sample data — used only for previewing the look outside
+ * Tableau. Contains NO client information. When the extension runs
+ * inside a Tableau dashboard, this is replaced by live worksheet data.
+ * ------------------------------------------------------------------ */
+
+// Stoplight thresholds, as a % of soft cap. Change these two numbers to retune.
+const YELLOW_AT=75;   // at/above this % => Yellow
+const RED_AT=90;      // at/above this % => Red
+function lightFor(pct){ if(pct==null||isNaN(pct))return null; if(pct>=RED_AT)return 'Red'; if(pct>=YELLOW_AT)return 'Yellow'; return 'Green'; }
+// Normalize a stoplight value from the data (e.g. "Green", "amber", "RED") to Green/Yellow/Red. null if unrecognized.
+function normalizeLight(v){
+  const s=String(v==null?'':v).toLowerCase();
+  if(!s.trim())return null;
+  if(s.includes('red'))return 'Red';
+  if(s.includes('yellow')||s.includes('amber'))return 'Yellow';
+  if(s.includes('green'))return 'Green';
+  return null;
+}
+
+const SAMPLE={"campuses":{
+  "North Campus":{"awaLeaf":{"WC":2400,"EC":180,"Elem":220,"HSM":70,"MSM":80},"weekendsInWindow":50,"trend":[2200,2350,2100,2400,2500,2300,2450,2600,2380,2420,2550,2700,2260,2410,2330,2480,2520,2360,2440,2610],"weekends":[
+    {"label":"2026-01-11","services":[
+      {"area":"WC","svc":"Sunday 9:00 AM","att":1100,"soft":1500,"firm":1500},
+      {"area":"WC","svc":"Sunday 11:00 AM","att":1300,"soft":1500,"firm":1500},
+      {"area":"EC","svc":"Sunday 9:00 AM","att":90,"soft":150,"firm":180},
+      {"area":"Elem","svc":"Sunday 9:00 AM","att":120,"soft":160,"firm":200},
+      {"area":"HSM","svc":"HSM","att":70,"soft":null,"firm":null},
+      {"area":"MSM","svc":"MSM","att":80,"soft":null,"firm":null}]},
+    {"label":"2026-01-04","services":[
+      {"area":"WC","svc":"Sunday 9:00 AM","att":1050,"soft":1500,"firm":1500},
+      {"area":"WC","svc":"Sunday 11:00 AM","att":1240,"soft":1500,"firm":1500},
+      {"area":"EC","svc":"Sunday 9:00 AM","att":84,"soft":150,"firm":180},
+      {"area":"Elem","svc":"Sunday 9:00 AM","att":110,"soft":160,"firm":200},
+      {"area":"HSM","svc":"HSM","att":66,"soft":null,"firm":null},
+      {"area":"MSM","svc":"MSM","att":75,"soft":null,"firm":null}]}
+  ]},
+  "South Campus":{"awaLeaf":{"WC":1600,"EC":120,"Elem":150,"HSM":40,"MSM":50},"weekendsInWindow":50,"trend":[1500,1550,1480,1600,1620,1580,1650,1700,1600,1640,1680,1720,1560,1590,1610,1660,1630,1600,1670,1710],"weekends":[
+    {"label":"2026-01-11","services":[
+      {"area":"WC","svc":"Sunday 10:00 AM","att":900,"soft":1000,"firm":1000},
+      {"area":"EC","svc":"Sunday 10:00 AM","att":70,"soft":120,"firm":140},
+      {"area":"Elem","svc":"Sunday 10:00 AM","att":95,"soft":140,"firm":160}]}
+  ]},
+  "West Campus":{"awaLeaf":{"WC":1100,"EC":90,"Elem":110,"HSM":30,"MSM":35},"weekendsInWindow":49,"trend":[1000,1050,980,1100,1120,1080,1150,1200,1090,1130,1160,1210,1020,1070,1040,1140,1110,1060,1150,1190],"weekends":[
+    {"label":"2026-01-11","services":[
+      {"area":"WC","svc":"Sunday 9:30 AM","att":700,"soft":900,"firm":900},
+      {"area":"EC","svc":"Sunday 9:30 AM","att":55,"soft":100,"firm":120},
+      {"area":"Elem","svc":"Sunday 9:30 AM","att":80,"soft":130,"firm":150}]}
+  ]}
+},"anchor":"2026-01-18"};
+
+// Fill in each sample service's pct + stoplight color. Use a provided light if present, else the % calc.
+Object.values(SAMPLE.campuses).forEach(cd=>(cd.weekends||[]).forEach(w=>w.services.forEach(s=>{
+  s.pct = s.soft ? +(s.att/s.soft*100).toFixed(1) : null;
+  s.light = normalizeLight(s.light) || lightFor(s.pct);
+})));
+
+let DATA=SAMPLE;
+
+const HIER=[
+  {cat:'WC',label:'Worship Center',sub:'Adult',leaves:[{k:'WC',label:'Worship Center',sub:''}]},
+  {cat:'Kids',label:'Kids',sub:'',leaves:[{k:'EC',label:'Early Childhood',sub:''},{k:'Elem',label:'Elementary',sub:''}]},
+  {cat:'Students',label:'Students',sub:'',leaves:[{k:'HSM',label:'High School',sub:'HSM'},{k:'MSM',label:'Middle School',sub:'MSM'}]},
+];
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const state={campus:Object.keys(DATA.campuses)[0],view:'awa',weekend:null};
+
+function sev(l){return l==='Red'?3:l==='Yellow'?2:l==='Green'?1:0}
+function colorOf(l){return l==='Red'?'red':l==='Yellow'?'yellow':l==='Green'?'green':'unknown'}
+
+// Draw the trend sparkline into `host` and wire a hover tooltip that shows the
+// weekly total (and the weekend date, when live data provides one).
+function renderSpark(host,vals,labels,w,h,accent){
+  if(!vals||!vals.length){ host.innerHTML=''; return; }
+  const pad=2, n=vals.length, dx=(w-pad*2)/((n-1)||1);
+  const mn=Math.min(...vals), mx=Math.max(...vals);
+  const yOf=v=>mx===mn?h/2:pad+(h-pad*2)*(1-(v-mn)/(mx-mn));
+  const pts=vals.map((v,i)=>({x:pad+i*dx, y:yOf(v), v:v, label:labels&&labels[i]}));
+  let d=''; pts.forEach((p,i)=>d+=(i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1)+' ');
+  const last=pts[n-1];
+  host.style.position='relative';
+  host.innerHTML=
+    `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="max-width:100%;display:block;overflow:visible">
+       <path d="${d}" fill="none" stroke="${accent}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+       <line class="sparkGuide" x1="0" y1="0" x2="0" y2="${h}" stroke="var(--baseline)" stroke-width="1" style="opacity:0"/>
+       <circle class="sparkDot" r="3.5" fill="${accent}" stroke="var(--surface-1)" stroke-width="2" style="opacity:0"/>
+       <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" fill="${accent}" stroke="var(--surface-1)" stroke-width="2"/>
+     </svg>
+     <div class="sparkTip" style="position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-100%);background:var(--surface-1);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;line-height:1.3;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.15);color:var(--text-1);transition:opacity .08s"></div>`;
+  const svg=host.querySelector('svg'), guide=host.querySelector('.sparkGuide'),
+        dot=host.querySelector('.sparkDot'), tip=host.querySelector('.sparkTip');
+  const showAt=ev=>{
+    const rect=svg.getBoundingClientRect();
+    const ux=(ev.clientX-rect.left)*(w/rect.width);
+    let i=Math.round((ux-pad)/dx); i=Math.max(0,Math.min(n-1,i));
+    const p=pts[i], rx=rect.width/w, ry=rect.height/h;
+    guide.setAttribute('x1',p.x); guide.setAttribute('x2',p.x); guide.style.opacity='.5';
+    dot.setAttribute('cx',p.x); dot.setAttribute('cy',p.y); dot.style.opacity='1';
+    tip.innerHTML=(p.label?`<b>${p.label}</b><br>`:'')+fmt(p.v);
+    tip.style.left=Math.max(24,Math.min(rect.width-24,p.x*rx))+'px';
+    tip.style.top=(p.y*ry-8)+'px';
+    tip.style.opacity='1';
+  };
+  const hide=()=>{ guide.style.opacity='0'; dot.style.opacity='0'; tip.style.opacity='0'; };
+  svg.addEventListener('mousemove',showAt);
+  svg.addEventListener('mouseleave',hide);
+}
+
+function renderAwa(){
+  const cd=DATA.campuses[state.campus], leaf=cd.awaLeaf;
+  const total=Object.values(leaf).reduce((a,b)=>a+b,0);
+  document.getElementById('heroAwa').textContent=fmt(total);
+  document.getElementById('heroCampus').textContent=state.campus;
+  renderSpark(document.getElementById('heroSpark'),cd.trend,cd.trendLabels,540,60,'var(--blue-450)');
+  const list=document.getElementById('awaList'); list.innerHTML='';
+  HIER.forEach(node=>{
+    const cv=node.leaves.reduce((s,l)=>s+leaf[l.k],0), cp=total?100*cv/total:0;
+    list.appendChild(rowAwa('cat',node.label,node.sub,cv,cp,'var(--blue-450)'));
+    if(!(node.leaves.length===1&&node.leaves[0].k===node.cat))
+      node.leaves.forEach(l=>list.appendChild(rowAwa('leaf',l.label,l.sub,leaf[l.k],total?100*leaf[l.k]/total:0,'var(--blue-250)')));
+  });
+}
+function rowAwa(kind,label,sub,val,pct,accent){
+  const r=document.createElement('div'); r.className='hrow '+kind;
+  r.innerHTML=`<div class="name">${label}${sub?` <span class="sub">${sub}</span>`:''}</div>
+    <div class="val">${fmt(val)}</div>
+    <div class="miniwrap"><div class="pbar" style="flex:1"><i style="width:${pct.toFixed(1)}%"></i></div></div>
+    <div class="pct">${pct.toFixed(1)}%</div>`;
+  return r;
+}
+
+// All weekends for a campus, most-recent first (works for live data and the sample).
+function currentWeekends(cd){
+  const list = (cd.weekends && cd.weekends.length)
+    ? cd.weekends.slice()
+    : [{label: cd.stoplightWeekend||'—', services: cd.services||[]}];
+  return list.sort((a,b)=>((b.t!=null?b.t:Date.parse(b.label)||0)-(a.t!=null?a.t:Date.parse(a.label)||0)));
+}
+// Order services within an area by weekend day (Thursday first, through Sunday) then by service time.
+const WEEKEND_ORDER=['Thursday','Friday','Saturday','Sunday','Monday','Tuesday','Wednesday'];
+function svcMinutes(name){
+  const m=String(name||'').match(/(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m/i);
+  if(!m)return 1e9;
+  let h=(+m[1])%12; if(/p/i.test(m[3]))h+=12;
+  return h*60+(m[2]?+m[2]:0);
+}
+function svcSortKey(s){ const day=weekdayFrom(s.svc); const dr=day?WEEKEND_ORDER.indexOf(day):-1; return [dr<0?99:dr, svcMinutes(s.svc)]; }
+function sortServices(svcs){
+  return svcs.slice().sort((a,b)=>{ const ka=svcSortKey(a),kb=svcSortKey(b); return ka[0]-kb[0] || ka[1]-kb[1] || String(a.svc||'').localeCompare(String(b.svc||'')); });
+}
+function renderWknd(){
+  const cd=DATA.campuses[state.campus];
+  const weekends=currentWeekends(cd);
+  const wk = weekends.find(w=>w.label===state.weekend) || weekends[0] || {label:'—',services:[]};
+  document.getElementById('wkndDate').textContent=wk.label||'—';
+  document.getElementById('wkndCampus').textContent=state.campus;
+  const byArea={}; ['WC','EC','Elem','HSM','MSM'].forEach(a=>byArea[a]=[]);
+  (wk.services||[]).forEach(s=>{ if(byArea[s.area]) byArea[s.area].push(s); });
+  const areaAtt={}; let total=0;
+  for(const a in byArea){ areaAtt[a]=byArea[a].reduce((x,s)=>x+s.att,0); total+=areaAtt[a]; }
+  const worst=svcs=>{ let m=-1,any=false; svcs.forEach(s=>{ if(s.light){any=true;m=Math.max(m,sev(s.light));} }); return any?['unknown','green','yellow','red'][m]:'unknown'; };
+  const list=document.getElementById('wkndList'); list.innerHTML='';
+  const addRow=(kind,label,sub,att,pct,color,svcs)=>{
+    const has=svcs&&svcs.length;
+    const r=document.createElement('div'); r.className='hrow '+kind+(has?' clickable':'');
+    r.innerHTML=`<div class="name"><span class="dot ${color}"></span>${label}${sub?` <span class="sub">${sub}</span>`:''}</div>
+      <div class="val">${fmt(att)}</div>
+      <div class="pct" style="text-align:left;color:var(--text-2)">${pct.toFixed(1)}% of total</div>
+      <div class="pct">${has?'<span class="caret">&#9654;</span>':''}</div>`;
+    list.appendChild(r);
+    if(has){ const panel=document.createElement('div'); panel.className='svcs';
+      sortServices(svcs).forEach(s=>{
+        const col=colorOf(s.light), pct=s.pct==null?null:s.pct;
+        const sr=document.createElement('div'); sr.className='svcrow';
+        sr.innerHTML=`<div class="svcname">${s.svc}</div>
+          <div class="cnt"><b>${fmt(s.att)}</b> / ${s.soft?fmt(s.soft)+' soft':'—'}</div>
+          <div class="meter ${col}"><i style="width:${pct!=null?Math.min(100,pct).toFixed(0):0}%"></i></div>
+          <div class="util">${pct!=null?pct.toFixed(0)+'%':'—'}</div>
+          <div><span class="dot ${col}"></span></div>`;
+        panel.appendChild(sr);
+      });
+      r.after(panel);
+      const caret=r.querySelector('.caret');
+      r.addEventListener('click',()=>{panel.classList.toggle('open'); if(caret)caret.classList.toggle('open');});
+    }
+  };
+  const allSvcs=Object.values(byArea).flat();
+  addRow('cat','Total','',total,total?100:0,worst(allSvcs),null);
+  HIER.forEach(node=>{
+    const nodeSvcs=node.leaves.flatMap(l=>byArea[l.k]);
+    const nodeAtt=node.leaves.reduce((s,l)=>s+areaAtt[l.k],0);
+    const standalone=node.leaves.length===1&&node.leaves[0].k===node.cat;
+    addRow('cat',node.label,node.sub,nodeAtt,total?100*nodeAtt/total:0,worst(nodeSvcs),standalone?byArea[node.cat]:null);
+    if(!standalone) node.leaves.forEach(l=>addRow('leaf',l.label,l.sub,areaAtt[l.k],total?100*areaAtt[l.k]/total:0,worst(byArea[l.k]),byArea[l.k]));
+  });
+}
+
+function render(){ state.view==='awa'?renderAwa():renderWknd(); }
+
+function initFilters(){
+  const c=document.getElementById('fCampus'); c.innerHTML='';
+  const keys=Object.keys(DATA.campuses).sort((a,b)=>a.localeCompare(b));
+  if(!keys.includes(state.campus)) state.campus=keys[0];
+  keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;c.appendChild(o);});
+  c.value=state.campus;
+}
+// The Weekend selector shows only on the Weekend Stoplight view, and lists the
+// weekends available for the chosen campus (most recent first).
+function updateWeekendFilter(){
+  const fieldEl=document.getElementById('wkndField');
+  const show = state.view==='wknd';
+  fieldEl.style.display = show ? '' : 'none';
+  if(!show) return;
+  const weekends=currentWeekends(DATA.campuses[state.campus]);
+  if(!weekends.some(w=>w.label===state.weekend)) state.weekend = weekends[0] ? weekends[0].label : null;
+  const sel=document.getElementById('fWknd'); sel.innerHTML='';
+  weekends.forEach(w=>{const o=document.createElement('option');o.value=w.label;o.textContent=w.label;sel.appendChild(o);});
+  sel.value=state.weekend;
+}
+document.getElementById('fCampus').addEventListener('change',e=>{state.campus=e.target.value;state.weekend=null;updateWeekendFilter();render();});
+document.getElementById('fWknd').addEventListener('change',e=>{state.weekend=e.target.value;render();});
+function setView(v){state.view=v;
+  document.getElementById('tabAwa').setAttribute('aria-selected',v==='awa');
+  document.getElementById('tabWknd').setAttribute('aria-selected',v==='wknd');
+  document.getElementById('viewAwa').classList.toggle('hidden',v!=='awa');
+  document.getElementById('viewWknd').classList.toggle('hidden',v!=='wknd');
+  updateWeekendFilter(); render();}
+document.getElementById('tabAwa').addEventListener('click',()=>setView('awa'));
+document.getElementById('tabWknd').addEventListener('click',()=>setView('wknd'));
+document.getElementById('themeBtn').addEventListener('click',()=>{const r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');render();});
+
+/* ================================================================== *
+ * LIVE DATA — read the 3 worksheets on the same Tableau dashboard.
+ *
+ *   Sheet "AWA by Area"     -> Campus, Ministry Area, AWA, Weekends in Window
+ *   Sheet "Weekly Trend"    -> Campus, Weekend (date), Total Attendance
+ *   Sheet "Service Stoplight"-> Campus, Ministry Area, Service, Attendance,
+ *                               Soft Cap, Firm Cap, Weekend Date, Stoplight
+ *
+ * The Stoplight color comes from the data's own field (Red/Yellow/Green) when
+ * present; only if that field is missing do we fall back to the % calc.
+ *
+ * Field names are matched loosely (case/spacing-insensitive), so small
+ * naming differences still work. Ministry Area accepts codes
+ * (WC/EC/Elem/HSM/MSM) or full names (Worship Center, Early Childhood...).
+ * ================================================================== */
+
+const AREA_MAP={worshipcenter:'WC',wc:'WC',earlychildhood:'EC',ec:'EC',elementary:'Elem',elem:'Elem',highschool:'HSM',hsm:'HSM',highschoolministry:'HSM',middleschool:'MSM',msm:'MSM',middleschoolministry:'MSM'};
+const norm=s=>String(s==null?'':s).toLowerCase().replace(/[^a-z0-9]/g,'');
+function normalizeArea(v){ const n=norm(v); return AREA_MAP[n]||String(v||'').trim(); }
+
+// Figure out a weekday name from any text (a service name like "Sunday 9:00 AM",
+// a plain "Sunday", or even a date). Returns '' if nothing weekday-like is found.
+const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function weekdayFrom(v){
+  if(v==null||v==='')return '';
+  const s=String(v).toLowerCase();
+  for(const d of DAYS){ if(s.includes(d.toLowerCase()))return d; }
+  const t=new Date(v).getTime();
+  if(!isNaN(t))return DAYS[new Date(v).getDay()];
+  return '';
+}
+
+function cellNum(cell){ if(!cell)return 0; let v=cell.nativeValue; if(v==null)v=cell.value; let n=Number(v);
+  if(isNaN(n)) n=Number(String(cell.formattedValue||'').replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+function cellStr(cell){ if(!cell)return ''; const v=(cell.formattedValue!=null&&cell.formattedValue!=='')?cell.formattedValue:(cell.value!=null?cell.value:''); return String(v).trim(); }
+function cellTime(cell){ if(!cell)return 0; const v=cell.nativeValue!=null?cell.nativeValue:cell.value; const t=new Date(v).getTime(); return isNaN(t)?0:t; }
+
+// Read a worksheet as plain records (one object per logical row, keyed by
+// normalized field name). Un-melts Tableau's "Measure Names / Measure Values"
+// shape — what you get when a sheet carries several measures — back into one
+// record with each measure as its own field.
+async function readRecords(ws){
+  const dt=await ws.getSummaryDataAsync({ignoreSelection:true});
+  const cols=dt.columns.map(c=>({name:norm(c.fieldName),index:c.index}));
+  const mn=cols.find(c=>c.name==='measurenames');
+  const mv=cols.find(c=>c.name==='measurevalues');
+  const records=[];
+  if(mn&&mv){
+    const dims=cols.filter(c=>c!==mn&&c!==mv);
+    const groups=new Map();
+    dt.data.forEach(row=>{
+      const key=dims.map(c=>cellStr(row[c.index])).join('');
+      let rec=groups.get(key);
+      if(!rec){ rec={}; dims.forEach(c=>rec[c.name]=row[c.index]); groups.set(key,rec); records.push(rec); }
+      rec[norm(cellStr(row[mn.index]))]=row[mv.index];
+    });
+  }else{
+    dt.data.forEach(row=>{ const rec={}; cols.forEach(c=>rec[c.name]=row[c.index]); records.push(rec); });
+  }
+  return records;
+}
+// Return the cell for the first field name that matches (exact, then contains).
+function field(rec,cands){
+  for(const cnd of cands){ const k=norm(cnd); if(k in rec)return rec[k]; }
+  for(const cnd of cands){ const k=norm(cnd); for(const key in rec){ if(key.includes(k))return rec[key]; } }
+  return undefined;
+}
+function findSheet(dash,cands){
+  return dash.worksheets.find(w=>cands.some(c=>norm(w.name)===norm(c)))
+      || dash.worksheets.find(w=>cands.some(c=>norm(w.name).includes(norm(c))));
+}
+
+async function loadFromTableau(){
+  const dash=tableau.extensions.dashboardContent.dashboard;
+  const wsAwa=findSheet(dash,['AWA by Area','AWA']);
+  const wsTrend=findSheet(dash,['Weekly Trend','Trend']);
+  const wsSvc=findSheet(dash,['Service Stoplight','Stoplight','Service']);
+  if(!wsAwa||!wsTrend||!wsSvc) throw new Error('Could not find all 3 worksheets on this dashboard.');
+
+  const out={campuses:{},anchor:''};
+  const ensure=c=>{ if(!out.campuses[c]) out.campuses[c]={awaLeaf:{WC:0,EC:0,Elem:0,HSM:0,MSM:0},weekendsInWindow:0,trend:[],stoplightWeekend:'',services:[]}; return out.campuses[c]; };
+
+  // Sheet 1 — AWA by Area
+  (await readRecords(wsAwa)).forEach(rec=>{
+    const c=cellStr(field(rec,['Campus'])); if(!c)return; const cd=ensure(c);
+    const area=normalizeArea(cellStr(field(rec,['Ministry Area','Area'])));
+    if(area in cd.awaLeaf) cd.awaLeaf[area]=cellNum(field(rec,['AWA','Average Weekly Attendance']));
+    const wk=field(rec,['Weekends in Window','Weekends']); if(wk!==undefined) cd.weekendsInWindow=cellNum(wk);
+  });
+
+  // Sheet 2 — Weekly Trend
+  const trend={};
+  (await readRecords(wsTrend)).forEach(rec=>{
+    const c=cellStr(field(rec,['Campus'])); if(!c)return;
+    const wk=field(rec,['Weekend','Weekend Date','Date']);
+    (trend[c]=trend[c]||[]).push({t:cellTime(wk),v:cellNum(field(rec,['Total Attendance','Attendance','Total'])),label:cellStr(wk)});
+  });
+  for(const c in trend){ const arr=trend[c].sort((x,y)=>x.t-y.t); const cd=ensure(c); cd.trend=arr.map(p=>p.v); cd.trendLabels=arr.map(p=>p.label); }
+
+  // Sheet 3 — Service Stoplight (grouped by weekend so the selector can page through them)
+  const wkMap={}; // campus -> { weekendLabel -> {t,label,services:[]} }
+  (await readRecords(wsSvc)).forEach(rec=>{
+    const c=cellStr(field(rec,['Campus'])); if(!c)return; ensure(c);
+    const soft=cellNum(field(rec,['Soft Cap','Soft']));
+    const att=cellNum(field(rec,['Attendance','Att']));
+    const svc=cellStr(field(rec,['Service']));
+    const firm=cellNum(field(rec,['Firm Cap','Firm']));
+    const pct=soft>0?+(att/soft*100).toFixed(1):null;
+    const wkCell=field(rec,['Weekend Date','Weekend','Date']);
+    const label=wkCell!==undefined?cellStr(wkCell):'—';
+    const t=wkCell!==undefined?cellTime(wkCell):0;
+    // Prefer the data's own stoplight field; fall back to the % calc only if it's absent.
+    const light=normalizeLight(cellStr(field(rec,['Stoplight','Light','Capacity Status','Status','Color'])))||lightFor(pct);
+    const m=(wkMap[c]=wkMap[c]||{});
+    const w=(m[label]=m[label]||{t:t,label:label,services:[]});
+    w.services.push({
+      area:normalizeArea(cellStr(field(rec,['Ministry Area','Area']))), svc:svc,
+      att:att, soft:soft>0?soft:null, firm:firm>0?firm:null, pct:pct, light:light
+    });
+  });
+  for(const c in wkMap){
+    const cd=ensure(c);
+    cd.weekends=Object.values(wkMap[c]).sort((a,b)=>b.t-a.t);
+    cd.stoplightWeekend=cd.weekends[0]?cd.weekends[0].label:'';
+    cd.services=cd.weekends[0]?cd.weekends[0].services:[];
+  }
+
+  if(!Object.keys(out.campuses).length) throw new Error('No rows returned from the worksheets.');
+  DATA=out;
+
+  // Keep the extension live: redraw whenever any of the 3 sheets changes.
+  [wsAwa,wsTrend,wsSvc].forEach(ws=>{ try{ ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh); }catch(e){} });
+}
+
+let refreshing=false;
+async function refresh(){ if(refreshing)return; refreshing=true; try{ await loadFromTableau(); initFilters(); updateWeekendFilter(); }catch(e){} refreshing=false; render(); }
+
+async function boot(){
+  if(window.tableau && tableau.extensions && tableau.extensions.initializeAsync){
+    try{ await tableau.extensions.initializeAsync(); await loadFromTableau(); }
+    catch(e){ console.warn('Pinchpoint: using sample data —', e && e.message); }
+  }
+  initFilters(); updateWeekendFilter(); render();
+}
+boot();
+</script>
+</body>
+</html>
