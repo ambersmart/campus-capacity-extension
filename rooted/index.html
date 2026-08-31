@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rooted Effectiveness — print</title>
+<!--
+  STATIC DESIGN REFERENCE · LIGHT / PRINT variant · Rooted effectiveness dashboard.
+  Brand: "Rooted" — Forest green #34532A, Olive #8A7A38, Charcoal #3A3936, white.
+  Sample figures for layout only — NOT real client data. In the extension, bind chart values to the Extensions API
+  (getSummaryDataAsync) and redraw the same SVG paths.
+-->
+<style>
+  :root{
+    --ink:#20241C; --ink2:#5B5E52; --ink3:#8C8E80;
+    --line:#E7E7DE; --line2:#D6D6CB; --bg:#FFFFFF; --card:#FFFFFF; --charcoal:#3A3936;
+    --forest:#34532A; --forest-deep:#24401C; --forest-soft:#E7ECDF; --sage:#A8C28F;
+    --olive:#8A7A38; --clay:#B15C3C; --ochre:#CB9A3E; --pine:#3E77A8; --warm-grey:#B7B2A4;
+    --sans:"Helvetica Neue",Helvetica,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    /* Overall size dial: lower = smaller. 1 = original, .8 = 80%, etc. */
+    --scale:1;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; padding:30px 22px 56px; zoom:var(--scale);}
+  .wrap{max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:16px;}
+
+  /* charcoal header (echoes the Rooted hero band) */
+  .hero{border-bottom:3px solid var(--forest); padding:2px 4px 16px;
+    display:flex; align-items:flex-end; justify-content:space-between; gap:22px; flex-wrap:wrap;}
+  .wordmark{display:inline-block; font-size:13px; letter-spacing:.34em; text-transform:uppercase;
+    font-weight:800; color:var(--ink); padding-bottom:6px; border-bottom:2px solid var(--forest);}
+  .htitle{font-size:clamp(25px,3.8vw,36px); font-weight:800; letter-spacing:-.02em; line-height:1.03; margin:12px 0 0; color:var(--ink);}
+  .htitle span{color:var(--forest);}
+  .hfilters{display:flex; gap:24px; align-items:flex-end;}
+  .fl{font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink3); font-weight:700;}
+  .fv{font-size:16px; font-weight:700; margin-top:3px; color:var(--ink);}
+  .comp{text-align:right;}
+  .comp .n{font-size:30px; font-weight:800; color:var(--forest); line-height:1; letter-spacing:-.01em;}
+
+  .selwrap{display:flex; flex-direction:column;}
+  .sel{appearance:none; -webkit-appearance:none; font-family:inherit; font-size:16px; font-weight:700;
+    color:var(--ink); border:1px solid #CBD8BF; border-radius:8px; margin-top:4px; padding:7px 32px 7px 11px; cursor:pointer;
+    background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%2334532A' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;}
+  .sel:focus{outline:2px solid var(--forest); outline-offset:1px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    box-shadow:0 1px 2px rgba(32,36,28,.04),0 8px 24px rgba(32,36,28,.05); padding:20px 22px;}
+  .chead{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap;}
+  .eyebrow{font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--forest-deep); font-weight:800;}
+  .h{font-size:21px; font-weight:800; letter-spacing:-.015em; margin:4px 0 0; display:flex; align-items:center;}
+  .num{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px;
+    background:var(--forest); color:#fff; font-size:12px; font-weight:800; margin-right:11px;}
+  .sub{font-size:12.5px; color:var(--ink2); margin-top:9px; line-height:1.45;}
+  .pill{font-size:11px; color:var(--forest-deep); background:var(--forest-soft); border:1px solid #CBD8BF; border-radius:6px; padding:6px 12px; font-weight:700; white-space:nowrap;}
+  .winsel{appearance:none; -webkit-appearance:none; font-family:inherit; font-size:11px; font-weight:700;
+    color:var(--forest-deep); border:1px solid #CBD8BF; border-radius:6px; padding:6px 28px 6px 12px; cursor:pointer; white-space:nowrap;
+    background:var(--forest-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%2324401C' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center;}
+  .winsel:focus{outline:2px solid var(--forest); outline-offset:1px;}
+
+  .legend{display:flex; gap:14px; flex-wrap:wrap;}
+  .legend span{font-size:11px; color:var(--ink2); display:inline-flex; align-items:center; font-weight:600;}
+  .sw{width:11px; height:11px; border-radius:3px; margin-right:5px; display:inline-block;}
+  .sw.round{border-radius:50%;}
+
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:14px;}
+  .cols3{display:grid; grid-template-columns:1.35fr 1fr; gap:16px;}
+  @media(max-width:720px){ .two,.cols3{grid-template-columns:1fr;} }
+
+  svg{display:block; width:100%; height:auto;}
+  /* smooth glide when the Window dropdown moves the lift chart */
+  .two svg circle[data-row], .two svg line[data-row]{transition:cx .25s ease, x2 .25s ease;}
+  /* invisible hover targets sitting on each data point */
+  .pt{fill:transparent; pointer-events:all; cursor:pointer;}
+  .pt:hover{fill:var(--ink); fill-opacity:.12;}
+  /* floating value tooltip */
+  #tt{position:fixed; z-index:9999; pointer-events:none; opacity:0; transition:opacity .08s;
+    background:var(--ink); color:#fff; font:700 12px/1.3 var(--sans); padding:6px 9px;
+    border-radius:7px; box-shadow:0 4px 14px rgba(32,36,28,.28); white-space:nowrap;}
+  .axis{font-size:11px; fill:var(--ink2); font-weight:600;}
+  .ylab{font-size:10px; fill:var(--ink3); font-weight:600;}
+  .grid{stroke:#ECECE2; stroke-width:1;}
+  .lab{font-size:11px; font-weight:800; fill:var(--ink);}
+
+  /* forest-green BAN (echoes the Rooted logo card) */
+  .ban{display:flex; flex-direction:column; justify-content:center; border-top:3px solid var(--forest);}
+  .ban .eyebrow{color:var(--forest-deep);}
+  .ban .big{font-size:clamp(46px,7.5vw,60px); font-weight:800; color:var(--forest); line-height:.98; margin:10px 0 4px; letter-spacing:-.02em;}
+  .ban .cap{font-size:13px; color:var(--ink2);}
+  .ban .rule{height:1px; background:var(--line); margin:14px 0 0;}
+  .ban .foot{font-size:11.5px; color:var(--ink3); margin-top:11px;}
+
+  .caption{font-size:11px; color:var(--ink3); margin-top:6px; padding:0 4px;}
+  .caption b{color:var(--forest-deep); font-weight:700;}
+  @media print{
+    @page{ margin:14mm; }
+    body{ padding:0; background:#fff; }
+    .wrap{ gap:11px; max-width:none; }
+    .card{ box-shadow:none; border:1px solid #DAD9CE; break-inside:avoid; }
+    .hero{ break-after:avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div>
+      <div class="wordmark">Rooted</div>
+      <h1 class="htitle">Did Rooted move people <span>to act?</span></h1>
+    </div>
+    <div class="hfilters">
+      <div class="selwrap"><div class="fl">Campus</div>
+        <select class="sel" aria-label="Campus">
+          <option selected>All</option>
+          <option>North Campus</option><option>South Campus</option><option>East Campus</option>
+          <option>West Campus</option><option>Downtown</option><option>Lakeside</option>
+          <option>Riverside</option><option>Hillcrest</option>
+        </select>
+      </div>
+      <div class="selwrap"><div class="fl">Semester</div>
+        <select class="sel" aria-label="Semester">
+          <option>All</option><option>Spring 2026</option><option>Winter 2026</option>
+          <option selected>Fall 2025</option><option>Summer 2025</option><option>Spring 2025</option>
+          <option>Winter 2025</option><option>Fall 2024</option><option>Spring 2024</option>
+          <option>Winter 2024</option><option>Fall 2023</option>
+        </select>
+      </div>
+      <div class="comp"><div class="fl">Completions</div><div class="n">1,500</div></div>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="chead">
+      <div>
+        <div class="eyebrow">First steps</div>
+        <div class="h">When they happen</div>
+      </div>
+      <div class="legend" style="max-width:250px; justify-content:flex-end;">
+        <span><i class="sw" style="background:var(--forest)"></i>First gift $25+</span>
+        <span><i class="sw" style="background:var(--pine)"></i>First serve</span>
+        <span><i class="sw" style="background:var(--olive)"></i>Next Steps</span>
+        <span><i class="sw" style="background:var(--ochre)"></i>Member</span>
+        <span><i class="sw" style="background:var(--clay)"></i>Baptized</span>
+      </div>
+    </div>
+    <div class="sub">Milestones — conversion among those who hadn't yet taken the step. These only climb as the window widens.</div>
+    <svg viewBox="0 0 720 250" role="img" aria-label="Milestone conversion climbing across windows">
+      <g class="grid"><line x1="66" y1="30" x2="694" y2="30"/><line x1="66" y1="80" x2="694" y2="80"/><line x1="66" y1="130" x2="694" y2="130"/><line x1="66" y1="180" x2="694" y2="180"/><line x1="66" y1="220" x2="694" y2="220"/></g>
+      <g class="ylab" text-anchor="end"><text x="56" y="34">20%</text><text x="56" y="84">15%</text><text x="56" y="134">10%</text><text x="56" y="184">5%</text><text x="56" y="224">0%</text></g>
+      <path d="M150,172 L420,40 L620,30" fill="none" stroke="var(--forest)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M150,196 L420,82 L620,40" fill="none" stroke="var(--pine)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M150,163 L420,82 L620,68" fill="none" stroke="var(--olive)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M150,182 L420,110 L620,96" fill="none" stroke="var(--ochre)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M150,210 L420,172 L620,163" fill="none" stroke="var(--clay)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <g><circle cx="620" cy="30" r="4.5" fill="var(--forest)"/><circle cx="620" cy="40" r="4.5" fill="var(--pine)"/><circle cx="620" cy="68" r="4.5" fill="var(--olive)"/><circle cx="620" cy="96" r="4.5" fill="var(--ochre)"/><circle cx="620" cy="163" r="4.5" fill="var(--clay)"/></g>
+      <g class="axis" text-anchor="middle"><text x="150" y="242">06wk</text><text x="420" y="242">06mo</text><text x="620" y="242">ALL</text></g>
+      <g>
+        <circle class="pt" r="12" cx="150" cy="172" data-lab="First gift $25+ · 6 wk: 5%"/>
+        <circle class="pt" r="12" cx="420" cy="40"  data-lab="First gift $25+ · 6 mo: 19%"/>
+        <circle class="pt" r="12" cx="620" cy="30"  data-lab="First gift $25+ · All: 20%"/>
+        <circle class="pt" r="12" cx="150" cy="196" data-lab="First serve · 6 wk: 3%"/>
+        <circle class="pt" r="12" cx="420" cy="82"  data-lab="First serve · 6 mo: 14%"/>
+        <circle class="pt" r="12" cx="620" cy="40"  data-lab="First serve · All: 19%"/>
+        <circle class="pt" r="12" cx="150" cy="163" data-lab="Next Steps · 6 wk: 6%"/>
+        <circle class="pt" r="12" cx="420" cy="82"  data-lab="Next Steps · 6 mo: 14%"/>
+        <circle class="pt" r="12" cx="620" cy="68"  data-lab="Next Steps · All: 16%"/>
+        <circle class="pt" r="12" cx="150" cy="182" data-lab="Member · 6 wk: 4%"/>
+        <circle class="pt" r="12" cx="420" cy="110" data-lab="Member · 6 mo: 12%"/>
+        <circle class="pt" r="12" cx="620" cy="96"  data-lab="Member · All: 13%"/>
+        <circle class="pt" r="12" cx="150" cy="210" data-lab="Baptized · 6 wk: 1%"/>
+        <circle class="pt" r="12" cx="420" cy="172" data-lab="Baptized · 6 mo: 5%"/>
+        <circle class="pt" r="12" cx="620" cy="163" data-lab="Baptized · All: 6%"/>
+      </g>
+    </svg>
+  </section>
+
+  <section class="card">
+    <div class="chead">
+      <div>
+        <div class="eyebrow">Ongoing engagement</div>
+        <div class="h">Lift &amp; durability</div>
+      </div>
+      <select id="winsel" class="winsel" aria-label="Window for the lift chart">
+        <option value="6wk">Window · 6 weeks</option>
+        <option value="6mo" selected>Window · 6 months</option>
+        <option value="all">Window · All time</option>
+      </select>
+    </div>
+    <div class="sub">States, measured against a matched-cadence baseline. Left: the before→after lift. Right: whether it holds over time.</div>
+    <div class="two">
+      <div>
+        <div class="legend" style="margin-bottom:12px;">
+          <span><i class="sw round" style="background:var(--warm-grey)"></i>Before Rooted</span>
+          <span><i class="sw round" style="background:var(--forest)"></i>After (<span id="winlab">6mo</span>)</span>
+        </div>
+        <svg viewBox="0 0 340 180" role="img" aria-label="Before and after lift for each state metric">
+          <g class="axis"><text x="0" y="26">Active in Life Group</text><text x="0" y="70">Serving</text><text x="0" y="114">Recurring giver</text><text x="0" y="158">Automated giving</text></g>
+          <g stroke="var(--line2)" stroke-width="1" stroke-dasharray="2 3"><line x1="158" y1="22" x2="330" y2="22"/><line x1="158" y1="66" x2="330" y2="66"/><line x1="158" y1="110" x2="330" y2="110"/><line x1="158" y1="154" x2="330" y2="154"/></g>
+          <g stroke="var(--forest)" stroke-width="3">
+            <line data-row="active"    x1="176" y1="22"  x2="308" y2="22"/>
+            <line data-row="serving"   x1="208" y1="66"  x2="240" y2="66"/>
+            <line data-row="recurring" x1="192" y1="110" x2="226" y2="110"/>
+            <line data-row="automated" x1="268" y1="154" x2="304" y2="154"/>
+          </g>
+          <g fill="var(--warm-grey)"><circle cx="176" cy="22" r="5.5"/><circle cx="208" cy="66" r="5.5"/><circle cx="192" cy="110" r="5.5"/><circle cx="268" cy="154" r="5.5"/></g>
+          <g fill="var(--forest)">
+            <circle data-row="active"    cx="308" cy="22"  r="5.5"/>
+            <circle data-row="serving"   cx="240" cy="66"  r="5.5"/>
+            <circle data-row="recurring" cx="226" cy="110" r="5.5"/>
+            <circle data-row="automated" cx="304" cy="154" r="5.5"/>
+          </g>
+        </svg>
+      </div>
+      <div>
+        <div class="eyebrow" style="margin-bottom:12px;">Durability across windows</div>
+        <svg viewBox="0 0 340 180" role="img" aria-label="Durability of each state across windows">
+          <g class="grid"><line x1="30" y1="24" x2="330" y2="24"/><line x1="30" y1="78" x2="330" y2="78"/><line x1="30" y1="132" x2="330" y2="132"/></g>
+          <path d="M56,86 L188,48 L300,58" fill="none" stroke="var(--forest)" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M56,66 L188,42 L300,64" fill="none" stroke="var(--ochre)" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M56,128 L188,94 L300,96" fill="none" stroke="var(--clay)" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M56,80 L188,90 L300,92" fill="none" stroke="var(--pine)" stroke-width="3" stroke-linejoin="round"/>
+          <g class="axis" text-anchor="middle"><text x="56" y="152">06wk</text><text x="188" y="152">06mo</text><text x="300" y="152">ALL</text></g>
+          <g>
+            <circle class="pt" r="11" cx="56"  cy="86" data-lab="Active LG · 6 wk"/>
+            <circle class="pt" r="11" cx="188" cy="48" data-lab="Active LG · 6 mo"/>
+            <circle class="pt" r="11" cx="300" cy="58" data-lab="Active LG · All"/>
+            <circle class="pt" r="11" cx="56"  cy="66" data-lab="Automated · 6 wk"/>
+            <circle class="pt" r="11" cx="188" cy="42" data-lab="Automated · 6 mo"/>
+            <circle class="pt" r="11" cx="300" cy="64" data-lab="Automated · All"/>
+            <circle class="pt" r="11" cx="56"  cy="128" data-lab="Recurring · 6 wk"/>
+            <circle class="pt" r="11" cx="188" cy="94" data-lab="Recurring · 6 mo"/>
+            <circle class="pt" r="11" cx="300" cy="96" data-lab="Recurring · All"/>
+            <circle class="pt" r="11" cx="56"  cy="80" data-lab="Serving · 6 wk"/>
+            <circle class="pt" r="11" cx="188" cy="90" data-lab="Serving · 6 mo"/>
+            <circle class="pt" r="11" cx="300" cy="92" data-lab="Serving · All"/>
+          </g>
+        </svg>
+        <div class="legend" style="margin-top:10px;">
+          <span><i class="sw" style="background:var(--forest)"></i>Active LG</span>
+          <span><i class="sw" style="background:var(--ochre)"></i>Automated</span>
+          <span><i class="sw" style="background:var(--clay)"></i>Recurring</span>
+          <span><i class="sw" style="background:var(--pine)"></i>Serving</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="cols3">
+    <section class="card">
+      <div class="eyebrow">Staying connected</div>
+      <div class="h">Retention</div>
+      <div class="sub" style="margin-bottom:8px;">Share still active in a Life Group, by horizon. View one cohort at a time.</div>
+      <svg viewBox="0 0 400 170" role="img" aria-label="Retention across windows">
+        <g class="grid"><line x1="40" y1="24" x2="384" y2="24"/><line x1="40" y1="72" x2="384" y2="72"/><line x1="40" y1="120" x2="384" y2="120"/></g>
+        <path d="M78,89 L212,33 L346,57" fill="none" stroke="var(--forest)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <g fill="var(--forest)"><circle cx="78" cy="89" r="5"/><circle cx="212" cy="33" r="5"/><circle cx="346" cy="57" r="5"/></g>
+        <g class="lab" text-anchor="middle"><text x="78" y="107">22.0%</text><text x="212" y="24">48.0%</text><text x="346" y="48">35.0%</text></g>
+        <g class="axis" text-anchor="middle"><text x="78" y="150">06wk</text><text x="212" y="150">06mo</text><text x="346" y="150">ALL</text></g>
+        <g>
+          <circle class="pt" r="13" cx="78"  cy="89" data-lab="Retention · 6 wk: 22.0%"/>
+          <circle class="pt" r="13" cx="212" cy="33" data-lab="Retention · 6 mo: 48.0%"/>
+          <circle class="pt" r="13" cx="346" cy="57" data-lab="Retention · All: 35.0%"/>
+        </g>
+      </svg>
+    </section>
+    <section class="card ban">
+      <div class="eyebrow">Still active now</div>
+      <div class="big">35.0%</div>
+      <div class="cap">attended a Life Group in the last 45 days</div>
+      <div class="rule"></div>
+      <div class="foot">of 1,500 Fall 2025 completions</div>
+    </section>
+  </div>
+
+  <div class="caption"><b>Sample data</b> shown for layout only — not real figures. In the Trex extension, live values load from Tableau via the Extensions API and redraw the same SVG paths. Prepared by SmartMetrix.</div>
+
+</div>
+
+<!-- floating tooltip for chart hover -->
+<div id="tt"></div>
+<script>
+  (function () {
+    var tt = document.getElementById('tt');
+    document.querySelectorAll('.pt').forEach(function (el) {
+      el.addEventListener('mousemove', function (e) {
+        tt.textContent = el.getAttribute('data-lab');
+        tt.style.left = (e.clientX + 14) + 'px';
+        tt.style.top = (e.clientY + 14) + 'px';
+        tt.style.opacity = '1';
+      });
+      el.addEventListener('mouseleave', function () { tt.style.opacity = '0'; });
+    });
+  })();
+</script>
+
+<!-- Window selector: moves ONLY the left "before -> after" lift chart.
+     Positions per window are PLACEHOLDERS (mockup) until wired to live data. -->
+<script>
+  (function () {
+    var sel = document.getElementById('winsel');
+    if (!sel) return;
+    var ROWS = ['active', 'serving', 'recurring', 'automated'];
+    // "after" x-position for each metric, per window (higher = more lift)
+    var WIN = {
+      '6wk': { active: 232, serving: 220, recurring: 202, automated: 284, label: '6wk' },
+      '6mo': { active: 308, serving: 240, recurring: 226, automated: 304, label: '6mo' },
+      'all': { active: 320, serving: 250, recurring: 236, automated: 312, label: 'All' }
+    };
+    var lab = document.getElementById('winlab');
+    function apply(key) {
+      var d = WIN[key];
+      if (!d) return;
+      ROWS.forEach(function (row) {
+        var c = document.querySelector('circle[data-row="' + row + '"]');
+        var ln = document.querySelector('line[data-row="' + row + '"]');
+        if (c) c.setAttribute('cx', d[row]);
+        if (ln) ln.setAttribute('x2', d[row]);
+      });
+      if (lab) lab.textContent = d.label;
+    }
+    sel.addEventListener('change', function () { apply(sel.value); });
+  })();
+</script>
+
+<!-- Tableau Extensions API. Loading this + initializeAsync() is the minimum
+     needed for Tableau to accept the page as a real extension. Chart values are
+     still the static Fall 2025 figures for now; wiring them to live worksheet
+     data (getSummaryDataAsync) is the next step. -->
+<script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.min.js"></script>
+<script>
+  tableau.extensions.initializeAsync().then(function () {
+    console.log('Rooted extension: connected to Tableau.');
+    // TODO: read worksheet summary data and redraw the SVG paths here.
+  }, function (err) {
+    console.error('Rooted extension failed to initialize:', err);
+  });
+</script>
+</body>
+</html>

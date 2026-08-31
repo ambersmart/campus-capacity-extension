@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="com.smartmetrix.rooted" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name" />
+    <description>Rooted effectiveness dashboard — milestones, lift &amp; durability, and retention for Lakepointe's Rooted program. Binds chart values to live worksheet data via the Tableau Extensions API.</description>
+    <author name="SmartMetrix" email="amber@smartmetrixdata.com" organization="Smart Metrix Data" website="https://smartmetrixdata.com" />
+    <min-api-version>1.4</min-api-version>
+    <source-location>
+      <url>https://dashboards.smartmetrixdata.com/rooted/index.html</url>
+    </source-location>
+    <icon>iVBORw0KGgoAAAANSUhEUgAAAEYAAABGCAYAAABxLuKEAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHkSURBVHhe7ZmvS0RBFIX37zFv1ipGxSRiEQxiEcSkxaJNg0mwiM2gWcFqEaNVDP4bT87Kg90Zz4w/uHfu6jnwlWXmDXw7b+bOvMFwaaYTOYP0B/GBxBAkhiAxBIkhSAxBYggSQ5AYgsQQJIYgMQSJIUgMQWIIEkOQGILEECSGIDEEiSFIDEFiCBJDMBHz09w/3HYXN+fd3sluN78+lz3Xk1Bi0kBSK0GhxfTZPtzMxrBmKsQgqzvL2TiWTI2Y17eXbBxL3MV89s9v7K+NFt5a0C7ta0UIMT1YbEs5vTzO+lgRSszsyjBtPhHMqrSPFaHEgNIrJTEkEkNyfXeVtbcinJhScFRI21sRSgwq3FI8jwdhxCxuLaRNJ+K5VYPmYjALjs4O0mYTeXp+HG3l6TiWuIv5blpIAaHFoBJuIQWEFNPyHqYnpBjUMhJTCHaq9NleuIsZ35VqdQvyb9aYdLuu1S+e56NxmosBKPVLQZ2T9rEmhBhQOjwi3otxGDHRXqkwYgDOQ6V4fkYJJaZ2tYl47VKhxAB8CSjF67IqnBhQW4i/8ozfElIMdqBS8PHN+pUKKQbU7misL67CisGMwMwoxfIsZSLmLyAxBIkhSAxBYggSQ5AYgsQQJIYgMQSJIUgMQWII7wmF9sF9SqtaAAAAAElFTkSuQmCC</icon>
+  </dashboard-extension>
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Rooted Effectiveness</text>
+    </resource>
+  </resources>
+</manifest>
