@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Weekend Attendance</title>
+
+<!-- Tableau Extensions API (required, loaded from Tableau's official CDN) -->
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.min.js"></script>
+
+<!-- Fonts: condensed display + serif subtitle. Falls back gracefully if offline. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<style id="wa-style">
+  :root{
+    --ink:#1b1712;          /* near-black warm text */
+    --header-bg:#262019;    /* dark warm header */
+    --paper:#e7e3d6;        /* cream body */
+    --paper-line:#cbc6b6;   /* hairline on paper */
+    --muted:#8f897b;        /* warm gray labels */
+    --muted-dark:#6f6a5d;
+    --cream:#ece7db;        /* light text on dark */
+    --cream-soft:#c9c3b4;   /* soft text on dark */
+    --rust:#c1440e;         /* accent / declines */
+    --up:#1b1712;           /* increases render dark, per wireframe */
+    --track:rgba(27,23,18,.10);
+
+    --f-cond:'Oswald','Arial Narrow','Helvetica Neue',sans-serif;
+    --f-serif:'Spectral',Georgia,'Times New Roman',serif;
+    --f-label:'Oswald','Helvetica Neue',Arial,sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:var(--f-cond);-webkit-font-smoothing:antialiased;}
+  body{min-height:100vh;display:flex;flex-direction:column;}
+
+  .tabnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+
+  /* ---------- HEADER ---------- */
+  header{background:var(--header-bg);color:var(--cream);padding:26px 34px 30px;position:relative;}
+  .pdf-icon{position:absolute;right:26px;bottom:22px;width:40px;height:40px;border:none;
+    border-radius:9px;background:var(--rust);cursor:pointer;display:flex;align-items:center;
+    justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);padding:0;}
+  .pdf-icon:hover{filter:brightness(1.09);}
+  .pdf-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round;}
+  .head-top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;}
+  .eyebrow{font-family:var(--f-label);font-weight:500;font-size:12px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--cream-soft);margin:0 0 6px;}
+  .total{font-family:var(--f-cond);font-weight:700;font-size:clamp(56px,9vw,92px);
+    line-height:.92;margin:0;letter-spacing:-.01em;}
+  .total::after{content:"";display:block;width:88px;height:5px;background:var(--rust);
+    margin-top:12px;border-radius:1px;}
+  .head-stats{text-align:right;flex:0 0 auto;}
+  .head-stats .stat{margin-bottom:10px;}
+  .head-stats .stat-label{font-family:var(--f-label);font-weight:500;font-size:11px;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--cream-soft);}
+  .head-stats .stat-num{font-family:var(--f-cond);font-weight:600;font-size:30px;line-height:1;}
+  .subtitle{font-family:var(--f-serif);font-size:17px;line-height:1.5;color:var(--cream-soft);
+    max-width:640px;margin:22px 0 0;}
+  .subtitle b{color:var(--rust);font-weight:500;}
+
+  /* ---------- TABLE ---------- */
+  main{flex:1 1 auto;padding:8px 34px 0;}
+  .thead,.crow,.srow{display:grid;
+    grid-template-columns:minmax(180px,1fr) 210px 190px 190px;
+    align-items:baseline;column-gap:16px;}
+  .thead{padding:16px 0 10px;}
+  .thead div{font-family:var(--f-label);font-weight:500;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);}
+  .thead .r{text-align:right;}
+  .thead .strong{color:var(--ink);}
+
+  .campus{border-top:1.5px solid var(--ink);padding-top:12px;margin-top:2px;}
+  .campus:first-of-type{border-top:none;margin-top:0;}
+  .cname{font-family:var(--f-cond);font-weight:700;font-size:26px;text-transform:uppercase;
+    letter-spacing:.005em;line-height:1;}
+  .cbig{font-family:var(--f-cond);font-weight:700;font-size:30px;line-height:1;}
+
+  /* right-aligned number + hanging annotation */
+  .cell{display:flex;justify-content:flex-end;align-items:baseline;gap:8px;white-space:nowrap;}
+  .num{font-family:var(--f-cond);font-weight:600;text-align:right;}
+  .ann{font-family:var(--f-label);font-size:12px;color:var(--muted);flex:0 0 74px;text-align:left;}
+  .delta{font-family:var(--f-label);font-weight:600;font-size:12.5px;flex:0 0 62px;text-align:left;
+    letter-spacing:.01em;}
+  .delta.down{color:var(--rust);}
+  .delta.up{color:var(--up);}
+  .delta.flat{color:var(--muted);}
+  .disc{font-family:var(--f-label);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);}
+  .dash{color:var(--muted);}
+
+  /* share bar */
+  .bar{grid-column:1 / -1;height:6px;background:var(--track);border-radius:3px;margin:12px 0 6px;
+    overflow:hidden;}
+  .bar > span{display:block;height:100%;background:var(--ink);border-radius:3px;}
+
+  .srow{padding:9px 0;border-bottom:1px solid var(--paper-line);}
+  .srow:last-child{border-bottom:none;}
+  .stime{font-family:var(--f-label);font-weight:400;font-size:15px;color:var(--muted-dark);}
+  .srow .num{font-size:20px;color:var(--ink);}
+  .cbig, .campus .cell .num{font-size:30px;}
+
+  /* ---------- FOOTER ---------- */
+  footer{margin-top:14px;padding:16px 34px 22px;display:flex;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;border-top:1.5px solid var(--ink);}
+  footer div{font-family:var(--f-label);font-weight:500;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);}
+
+  /* ---------- STATES ---------- */
+  #status{padding:40px 34px;font-family:var(--f-serif);font-size:16px;color:var(--muted-dark);}
+  .err{color:var(--rust);}
+  .hidden{display:none !important;}
+
+  @media (max-width:720px){
+    .thead,.crow,.srow{grid-template-columns:1fr 120px;}
+    .thead .col-ly,.crow .cell.ly,.srow .cell.ly,
+    .thead .col-lw,.crow .cell.lw,.srow .cell.lw{display:none;}
+  }
+</style>
+</head>
+<body>
+
+  <div id="status">Loading weekend attendance…</div>
+
+  <div id="report" class="hidden">
+    <header>
+      <div class="head-top">
+        <div>
+          <p class="eyebrow" id="eyebrow">Weekend Attendance</p>
+          <h1 class="total tabnum" id="grandTotal">—</h1>
+        </div>
+        <div class="head-stats">
+          <div class="stat">
+            <div class="stat-label">Adults</div>
+            <div class="stat-num tabnum" id="adults">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Kids</div>
+            <div class="stat-num tabnum" id="kids">—</div>
+          </div>
+        </div>
+      </div>
+      <p class="subtitle" id="subtitle"></p>
+      <button id="pdfBtn" class="pdf-icon hidden" title="Download as PDF" aria-label="Download as PDF">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
+      </button>
+    </header>
+
+    <main>
+      <div class="thead">
+        <div>Campus &amp; Service</div>
+        <div class="r strong">This Weekend</div>
+        <div class="r col-lw">Last Weekend</div>
+        <div class="r col-ly">Last Year</div>
+      </div>
+      <div id="campuses"></div>
+    </main>
+
+    <footer>
+      <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; Bar shows share of total attendance</div>
+      <div>Excludes students and KM leaders</div>
+    </footer>
+  </div>
+
+<script>
+/* ============================================================
+   Weekend Attendance — Tableau dashboard extension
+   Reads the "Weekly Attendance" worksheet and rebuilds the
+   client's weekend report. All comparison math is done here,
+   so no extra calculated fields are needed on the sheet.
+   ============================================================ */
+
+var WORKSHEET_NAME = "Weekly Attendance";   // change here if the sheet is renamed
+
+// ---- small helpers ----
+function fmt(n){ return Math.round(n).toLocaleString("en-US"); }
+function el(id){ return document.getElementById(id); }
+function status(msg, isErr){
+  var s = el("status");
+  s.textContent = msg;
+  s.className = isErr ? "err" : "";
+  s.classList.remove("hidden");
+  el("report").classList.add("hidden");
+  var b = el("pdfBtn"); if (b) b.classList.add("hidden");
+}
+
+// Open a print-ready copy of the current report in a new window and trigger the
+// browser's print dialog (choose "Save as PDF"). Generated by the extension itself,
+// so it works even though Tableau can't export extensions to PDF.
+function downloadPdf(){
+  var report = el("report");
+  if (!report || report.classList.contains("hidden")) return;
+  var css = (el("wa-style") ? el("wa-style").textContent : "");
+  var doc = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Weekend Attendance</title>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">'
+    + '<style>' + css + '</style>'
+    + '<style>html,body{background:#fff;} #report{display:block!important;} #pdfBtn{display:none!important;} @page{size:letter portrait;margin:.45in;} '
+    + '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;} .campus{break-inside:avoid;}</style>'
+    + '</head><body>' + report.outerHTML + '</body></html>';
+  var w = window.open("", "_blank");
+  if (!w){ alert("Pop-up blocked — please allow pop-ups for this site, then click the download icon again."); return; }
+  w.document.open(); w.document.write(doc); w.document.close();
+  w.focus();
+  setTimeout(function(){ try{ w.print(); }catch(e){} }, 500);
+}
+
+// find a column index by fuzzy caption match
+function colFinder(columns){
+  var byName = {};
+  columns.forEach(function(c){ byName[c.fieldName.toLowerCase()] = c.index; });
+  return function(){
+    for (var i=0;i<arguments.length;i++){
+      var want = arguments[i].toLowerCase();
+      for (var name in byName){ if (name.indexOf(want) !== -1) return byName[name]; }
+    }
+    return -1;
+  };
+}
+
+// parse a year out of a Tableau date value/formatted string
+function yearOf(raw, formatted){
+  if (raw instanceof Date) return raw.getFullYear();
+  var m = String(raw||formatted||"").match(/(\d{4})/);
+  return m ? parseInt(m[1],10) : null;
+}
+// Parse one string/Date/number into a LOCAL calendar date. Normalizes so
+// getDate()/getDay() are correct regardless of time zone (Tableau sends true
+// date columns as UTC midnight, which otherwise rolls back a day in Mountain Time).
+function parseDateString(x){
+  if (x == null) return null;
+  if (x instanceof Date) return isNaN(x) ? null : new Date(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate());
+  var s = String(x).trim();
+  if (!s) return null;
+  var m = s.match(/(\d{4})-(\d{2})-(\d{2})/);              // ISO 2026-08-22
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);           // 8/22/2026
+  if (m) return new Date(+m[3], +m[1]-1, +m[2]);
+  m = s.match(/^(\d{4})(\d{2})(\d{2})$/);                  // 20260822 integer date
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  if (/^-?\d+(\.\d+)?$/.test(s)) return null;              // bare number (e.g. an int serial) -> NOT a date
+  var d = new Date(s);                                     // "August 22, 2026"
+  if (isNaN(d)) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+// Parse a Tableau data cell into a date, trying every representation it offers.
+// An MDY-derived date pill arrives as a bare int in value/nativeValue but carries
+// the readable date in formattedValue — so try formattedValue before value.
+function parseCellDate(cell){
+  if (!cell) return null;
+  return parseDateString(cell.nativeValue) ||
+         parseDateString(cell.formattedValue) ||
+         parseDateString(cell.value);
+}
+
+var MONTHS=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+function weekendLabel(sundayDate){
+  if (!sundayDate) return "";
+  var sun = sundayDate, sat = new Date(sun.getTime()-86400000);
+  var y = sun.getFullYear();
+  if (sat.getMonth() === sun.getMonth())
+    return MONTHS[sun.getMonth()]+" "+sat.getDate()+"–"+sun.getDate()+", "+y;
+  return MONTHS[sat.getMonth()]+" "+sat.getDate()+"–"+MONTHS[sun.getMonth()]+" "+sun.getDate()+", "+y;
+}
+
+// delta html: compares `now` vs a prior period value
+function deltaHTML(now, prior){
+  if (prior == null) return '<span class="delta"></span>';
+  if (prior === 0) return '<span class="delta flat">—</span>';
+  var pct = (now - prior) / prior * 100;
+  var cls = pct < -0.05 ? "down" : (pct > 0.05 ? "up" : "flat");
+  var arrow = pct < -0.05 ? "▼" : (pct > 0.05 ? "▲" : "");
+  return '<span class="delta '+cls+'">'+arrow+Math.abs(pct).toFixed(1)+'%</span>';
+}
+// a value cell with right-aligned number + hanging annotation
+function valueCell(val, annHTML, extraClass){
+  extraClass = extraClass || "";
+  if (val == null)
+    return '<div class="cell '+extraClass+'"><span class="num dash">—</span>'+(annHTML||'<span class="delta"></span>')+'</div>';
+  return '<div class="cell '+extraClass+'"><span class="num tabnum">'+fmt(val)+'</span>'+(annHTML||'')+'</div>';
+}
+
+// ---- core: turn flat rows into the report model ----
+function buildModel(rows){
+  // rows: {campus, service, agegroup, sunday(Date), weekOfYear(int), value(num)}
+  // 1) find the three weekends
+  var sundays = {};   // key -> {date, year, week, ms}
+  rows.forEach(function(r){
+    if (!r.sunday) return;
+    var key = r.sunday.getTime();
+    if (!sundays[key]) sundays[key] = {date:r.sunday, year:r.sunday.getFullYear(), week:r.weekOfYear, ms:key};
+  });
+  var sList = Object.keys(sundays).map(function(k){return sundays[k];}).sort(function(a,b){return b.ms-a.ms;});
+  if (!sList.length) return null;
+
+  var thisW = sList[0];
+  var lastW = sList[1] || null;
+  // prior-year same week: same weekOfYear, year === thisW.year-1 (fallback: ~364 days before)
+  var priorY = null;
+  for (var i=0;i<sList.length;i++){
+    if (sList[i].year === thisW.year-1 && sList[i].week === thisW.week){ priorY = sList[i]; break; }
+  }
+  if (!priorY){
+    var target = thisW.ms - 364*86400000, best=null, bestGap=Infinity;
+    sList.forEach(function(s){ var g=Math.abs(s.ms-target); if (g<bestGap && s.year<=thisW.year-1){bestGap=g;best=s;} });
+    priorY = best;
+  }
+  // a single weekend can't be both "last weekend" and "last year"
+  if (priorY && lastW && priorY.ms===lastW.ms) priorY = null;
+
+  var keyMs = {tw:thisW?thisW.ms:null, lw:lastW?lastW.ms:null, ly:priorY?priorY.ms:null};
+
+  // 2) aggregate by campus/service/period, splitting adults vs kids for "this weekend"
+  var campusOrder=[], campuses={};    // preserve first-seen order from the sheet
+  function ensureCampus(c){
+    if (!campuses[c]){ campuses[c]={name:c, order:campusOrder.length, tw:0,lw:0,ly:0, adults:0, kids:0,
+      serviceOrder:[], services:{}}; campusOrder.push(c); }
+    return campuses[c];
+  }
+  function ensureService(cObj,s){
+    if (!cObj.services[s]){ cObj.services[s]={name:s, tw:null,lw:null,ly:null, adults:0, kids:0, sortKey:null};
+      cObj.serviceOrder.push(s); }
+    return cObj.services[s];
+  }
+  // minutes-since-midnight from a service name like "9:00am" / "5:00pm" / "5:30pm"
+  function timeMinutes(name){
+    var m = String(name||"").match(/(\d{1,2}):(\d{2})\s*([ap]m)?/i);
+    if (!m) return 9999;
+    var h=+m[1], min=+m[2], ap=(m[3]||"").toLowerCase();
+    if (ap==="pm" && h<12) h+=12;
+    if (ap==="am" && h===12) h=0;
+    return h*60+min;
+  }
+  function periodOf(ms){ if(ms===keyMs.tw)return "tw"; if(ms===keyMs.lw)return "lw"; if(ms===keyMs.ly)return "ly"; return null; }
+
+  var grand={tw:0,lw:0,ly:0,adults:0,kids:0};
+
+  rows.forEach(function(r){
+    if (!r.sunday) return;
+    var p = periodOf(r.sunday.getTime());
+    if (!p) return;
+    var c = ensureCampus(r.campus);
+    var s = ensureService(c, r.service);
+    // sort key: weekend day offset (Sat before Sun) then time of day. Prefer a
+    // row that actually has a service date so Saturday services sort first.
+    if (s.sortKey == null || r.serviceDate){
+      var dayOff = (r.serviceDate && r.sunday)
+        ? Math.round((r.serviceDate.getTime()-r.sunday.getTime())/86400000) : 0;
+      s.sortKey = dayOff*1440 + timeMinutes(r.service);
+    }
+    // service period totals
+    s[p] = (s[p]==null?0:s[p]) + r.value;
+    // campus period totals
+    c[p] += r.value;
+    grand[p] += r.value;
+    // adults/kids split (this weekend only, for header + A/K annotation)
+    if (p==="tw"){
+      var isKid = /kid/i.test(r.agegroup);
+      var isAdult = /adult/i.test(r.agegroup);
+      if (isKid){ s.kids += r.value; c.kids += r.value; grand.kids += r.value; }
+      else if (isAdult){ s.adults += r.value; c.adults += r.value; grand.adults += r.value; }
+      else { s.adults += r.value; c.adults += r.value; grand.adults += r.value; } // anything else -> adults
+    }
+  });
+
+  // campuses: highest to lowest by this-weekend total
+  campusOrder.sort(function(a,b){ return campuses[b].tw - campuses[a].tw; });
+  // services within each campus: Saturday services first, then by time of day
+  campusOrder.forEach(function(cn){
+    campuses[cn].serviceOrder.sort(function(a,b){
+      var ka=campuses[cn].services[a].sortKey, kb=campuses[cn].services[b].sortKey;
+      return (ka==null?9e9:ka)-(kb==null?9e9:kb);
+    });
+  });
+
+  return {thisW:thisW, lastW:lastW, priorY:priorY, grand:grand,
+          campusOrder:campusOrder, campuses:campuses};
+}
+
+// ---- render ----
+function render(model){
+  if (!model){ status("No weekend data found on the “"+WORKSHEET_NAME+"” sheet.", true); return; }
+  el("status").classList.add("hidden");
+  el("report").classList.remove("hidden");
+  el("pdfBtn").classList.remove("hidden");
+
+  var g = model.grand;
+  el("eyebrow").textContent = "Weekend Attendance · " + weekendLabel(model.thisW.date);
+  el("grandTotal").textContent = fmt(g.tw);
+  el("adults").textContent = fmt(g.adults);
+  el("kids").textContent = fmt(g.kids);
+
+  // subtitle
+  var parts=[];
+  function phrase(now, prior, tail){
+    if (prior==null) return null;
+    var diff = now - prior, pct = prior? Math.abs(diff/prior*100):0;
+    var dir = diff<0 ? "Down" : (diff>0 ? "Up" : "Even");
+    if (diff===0) return "Even with "+tail;
+    return dir+' <b>'+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
+  }
+  var pw = phrase(g.tw, model.lastW?g.lw:null, "from last weekend");
+  var py = phrase(g.tw, model.priorY?g.ly:null, "from this weekend a year ago");
+  var sub="";
+  if (pw && py){
+    // "Down X (x%) from last weekend and Y (y%) from this weekend a year ago."
+    var pyTail = py.replace(/^(Down|Up|Even) /,'').replace(/^with /,'');
+    sub = pw + " and " + pyTail + ".";
+  } else if (pw){ sub = pw + "."; }
+  else if (py){ sub = py + "."; }
+  el("subtitle").innerHTML = sub;
+
+  // campuses
+  var host = el("campuses"); host.innerHTML="";
+  model.campusOrder.forEach(function(cn){
+    var c = model.campuses[cn];
+    var share = g.tw>0 ? Math.max(0, Math.min(100, c.tw/g.tw*100)) : 0;
+
+    var block = document.createElement("div");
+    block.className = "campus";
+
+    // campus header row
+    var crow = document.createElement("div");
+    crow.className = "crow";
+    crow.innerHTML =
+      '<div class="cname">'+cn+'</div>'
+      + valueCell(c.tw, '<span class="ann"></span>', "tw")
+      + valueCell(model.lastW?c.lw:null, deltaHTML(c.tw, model.lastW?c.lw:null), "lw")
+      + valueCell(model.priorY?c.ly:null, deltaHTML(c.tw, model.priorY?c.ly:null), "ly");
+    // make campus this-weekend number big
+    crow.querySelector(".tw .num").classList.add("cbig");
+    block.appendChild(crow);
+
+    // share bar
+    var bar=document.createElement("div");
+    bar.className="bar";
+    bar.innerHTML='<span style="width:'+share.toFixed(2)+'%"></span>';
+    block.appendChild(bar);
+
+    // service rows
+    c.serviceOrder.forEach(function(sn){
+      var s=c.services[sn];
+      var discontinued = (s.tw==null && s.lw==null && s.ly!=null);
+      var srow=document.createElement("div");
+      srow.className="srow";
+
+      var twCell;
+      if (discontinued){
+        twCell = '<div class="cell tw"><span class="num dash">—</span><span class="ann"></span></div>';
+      } else {
+        var ann = (s.tw!=null)
+          ? '<span class="ann">A '+fmt(s.adults)+' · K '+fmt(s.kids)+'</span>'
+          : '<span class="ann"></span>';
+        twCell = valueCell(s.tw, ann, "tw");
+      }
+
+      var lyInner;
+      if (discontinued){
+        lyInner = '<div class="cell ly"><span class="num tabnum">'+fmt(s.ly)+'</span><span class="disc">Discontinued</span></div>';
+      } else {
+        lyInner = valueCell(model.priorY?s.ly:null, deltaHTML(s.tw, model.priorY?s.ly:null), "ly");
+      }
+
+      srow.innerHTML =
+        '<div class="stime">'+sn+'</div>'
+        + twCell
+        + valueCell(model.lastW?s.lw:null, deltaHTML(s.tw, model.lastW?s.lw:null), "lw")
+        + lyInner;
+      block.appendChild(srow);
+    });
+
+    host.appendChild(block);
+  });
+}
+
+// ---- read summary data from the worksheet ----
+function readRows(worksheet){
+  function mapData(columns, data){
+    var find = colFinder(columns);
+    var iCampus = find("campus");
+    var iService= find("service time","service");
+    var iAge    = find("age range","age");
+    var iSunday = find("sunday");
+    var iWeek   = find("week of year","week");
+    var iVal    = find("y value","value","attendance","measure");
+    // Service Date = the actual Sat/Sun/Fri date of each service (distinct from the
+    // Sunday anchor). Detect by name, then by data type, then by sniffing a value —
+    // so it works no matter what the summary column ends up being called.
+    var iSvcDate = find("service date","metric value date");
+    if (iSvcDate === iSunday) iSvcDate = -1;
+    if (iSvcDate === -1){
+      for (var di=0; di<columns.length; di++){
+        if (di===iSunday) continue;
+        if (String(columns[di].dataType||"").toLowerCase().indexOf("date")>-1){ iSvcDate=di; break; }
+      }
+    }
+    if (iSvcDate === -1 && data.length){
+      for (var dj=0; dj<columns.length; dj++){
+        if (dj===iSunday) continue;
+        var cell=data[0][dj];
+        var v=cell?(cell.nativeValue!=null?cell.nativeValue:cell.value):null;
+        var s=String((v!=null?v:(cell&&cell.formattedValue))||"");
+        if ((v instanceof Date) || /\d{4}-\d{2}-\d{2}/.test(s) || /^\d{1,2}\/\d{1,2}\/\d{4}/.test(s)){ iSvcDate=dj; break; }
+      }
+    }
+    // fall back: measure = last numeric column
+    if (iVal === -1){
+      for (var k=columns.length-1;k>=0;k--){ if (String(columns[k].dataType).indexOf("float")>-1||String(columns[k].dataType).indexOf("int")>-1){ iVal=k; break; } }
+    }
+    var out=[];
+    data.forEach(function(row){
+      var sd   = iSunday>-1  ? parseCellDate(row[iSunday])  : null;
+      var svcd = iSvcDate>-1 ? parseCellDate(row[iSvcDate]) : null;
+      var vv = iVal>-1 ? row[iVal] : null;
+      var num = vv ? (typeof vv.nativeValue==="number"?vv.nativeValue:parseFloat(String(vv.value).replace(/[^0-9.\-]/g,""))) : 0;
+      if (isNaN(num)) num=0;
+      out.push({
+        campus:  iCampus>-1 ? row[iCampus].formattedValue : "Unknown",
+        service: iService>-1 ? row[iService].formattedValue : "",
+        serviceDate: svcd,
+        agegroup:iAge>-1 ? row[iAge].formattedValue : "",
+        sunday:  sd,
+        weekOfYear: iWeek>-1 ? parseInt(String(row[iWeek].value).replace(/[^0-9\-]/g,""),10) : null,
+        value:   num
+      });
+    });
+    return out;
+  }
+
+  // Primary: getSummaryDataAsync — simple and widely supported. This sheet's
+  // data volume is small, so pulling it in one call is fine.
+  if (typeof worksheet.getSummaryDataAsync === "function"){
+    return worksheet.getSummaryDataAsync({ignoreSelection:true, maxRows:0}).then(function(sd){
+      return mapData(sd.columns, sd.data);
+    });
+  }
+  // Fallback: streaming reader (newer API). Correct interface = pageCount + getPageAsync.
+  return worksheet.getSummaryDataReaderAsync(undefined, {ignoreSelection:true}).then(function(reader){
+    var cols=null, all=[], pages = reader.pageCount || 0;
+    var seq = Promise.resolve();
+    for (var i=0;i<pages;i++){ (function(n){
+      seq = seq.then(function(){
+        return reader.getPageAsync(n).then(function(dt){
+          if(!cols) cols=dt.columns;
+          dt.data.forEach(function(r){ all.push(r); });
+        });
+      });
+    })(i); }
+    return seq
+      .then(function(){ return reader.releaseAsync(); })
+      .then(function(){ return mapData(cols||[], all); });
+  });
+}
+
+function findWorksheet(){
+  var dash = tableau.extensions.dashboardContent.dashboard;
+  var ws = dash.worksheets.filter(function(w){ return w.name === WORKSHEET_NAME; })[0];
+  if (!ws){ // case-insensitive / trimmed fallback
+    ws = dash.worksheets.filter(function(w){ return w.name.trim().toLowerCase()===WORKSHEET_NAME.toLowerCase(); })[0];
+  }
+  return ws;
+}
+
+function refresh(){
+  var ws = findWorksheet();
+  if (!ws){
+    var names = tableau.extensions.dashboardContent.dashboard.worksheets.map(function(w){return w.name;}).join(", ");
+    status("Couldn’t find a worksheet named “"+WORKSHEET_NAME+"”. Sheets on this dashboard: "+names, true);
+    return;
+  }
+  status("Reading “"+ws.name+"”…");
+  readRows(ws)
+    .then(function(rows){ render(buildModel(rows)); })
+    .catch(function(e){ status("Error reading data: "+(e&&e.message?e.message:e), true); });
+}
+
+el("pdfBtn").addEventListener("click", downloadPdf);
+
+tableau.extensions.initializeAsync().then(function(){
+  refresh();
+  // live-refresh when the sheet's data changes (filters, extract refresh)
+  try{
+    var ws = findWorksheet();
+    if (ws && ws.addEventListener && tableau.TableauEventType){
+      ws.addEventListener(tableau.TableauEventType.FilterChanged, refresh);
+      ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh);
+    }
+  }catch(e){/* events are best-effort */}
+}).catch(function(e){
+  status("Couldn’t start the extension: "+(e&&e.message?e.message:e), true);
+});
+</script>
+</body>
+</html>

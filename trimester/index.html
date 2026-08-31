@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trimester Attendance</title>
+
+<!-- Tableau Extensions API -->
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<style id="ta-style">
+  :root{
+    --ink:#1b1712; --header-bg:#262019; --paper:#e7e3d6; --paper-line:#cbc6b6;
+    --muted:#8f897b; --muted-dark:#6f6a5d; --cream:#ece7db; --cream-soft:#c9c3b4;
+    --rust:#c1440e; --up:#1b1712; --track:rgba(27,23,18,.10);
+    --f-cond:'Oswald','Arial Narrow','Helvetica Neue',sans-serif;
+    --f-serif:'Spectral',Georgia,'Times New Roman',serif;
+    --f-label:'Oswald','Helvetica Neue',Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:var(--f-cond);-webkit-font-smoothing:antialiased;}
+  body{min-height:100vh;display:flex;flex-direction:column;}
+  .tabnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+
+  header{background:var(--header-bg);color:var(--cream);padding:26px 34px 30px;position:relative;}
+  .head-top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;}
+  .eyebrow{font-family:var(--f-label);font-weight:500;font-size:12px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--cream-soft);margin:0 0 6px;}
+  .total{font-family:var(--f-cond);font-weight:700;font-size:clamp(56px,9vw,92px);
+    line-height:.92;margin:0;letter-spacing:-.01em;}
+  .total::after{content:"";display:block;width:88px;height:5px;background:var(--rust);
+    margin-top:12px;border-radius:1px;}
+  .total .unit{font-size:.28em;font-weight:500;color:var(--cream-soft);letter-spacing:.04em;
+    margin-left:.4em;text-transform:uppercase;}
+  .head-stats{text-align:right;flex:0 0 auto;display:flex;gap:30px;}
+  .head-stats .stat-label{font-family:var(--f-label);font-weight:500;font-size:11px;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--cream-soft);}
+  .head-stats .stat-sub{font-family:var(--f-label);font-weight:500;font-size:11px;
+    color:var(--muted);letter-spacing:.08em;}
+  .head-stats .stat-num{font-family:var(--f-cond);font-weight:600;font-size:30px;line-height:1.05;}
+  .subtitle{font-family:var(--f-serif);font-size:17px;line-height:1.5;color:var(--cream-soft);
+    max-width:680px;margin:22px 0 0;}
+  .subtitle b{color:var(--rust);font-weight:500;}
+
+  main{flex:1 1 auto;padding:8px 34px 0;}
+  .thead,.crow{display:grid;grid-template-columns:minmax(180px,1fr) 200px 200px 200px;
+    align-items:baseline;column-gap:16px;}
+  .thead{padding:16px 0 10px;}
+  .thead div{font-family:var(--f-label);font-weight:500;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);}
+  .thead .r{text-align:right;}
+  .thead .strong{color:var(--ink);}
+  .thead .sub{display:block;font-size:10px;letter-spacing:.1em;color:var(--muted-dark);margin-top:2px;}
+
+  .campus{border-top:1px solid var(--paper-line);padding:16px 0 10px;}
+  .campus:first-of-type{border-top:1.5px solid var(--ink);}
+  .cname{font-family:var(--f-cond);font-weight:700;font-size:24px;text-transform:uppercase;
+    letter-spacing:.005em;line-height:1;}
+  .cell{display:flex;justify-content:flex-end;align-items:baseline;gap:8px;white-space:nowrap;}
+  .num{font-family:var(--f-cond);font-weight:600;text-align:right;}
+  .cbig .num, .crow .tw .num{font-size:28px;}
+  .crow .lw .num, .crow .ly .num{font-size:20px;color:var(--ink);}
+  .delta{font-family:var(--f-label);font-weight:600;font-size:12.5px;flex:0 0 60px;text-align:left;}
+  .delta.down{color:var(--rust);} .delta.up{color:var(--up);} .delta.flat{color:var(--muted);}
+  .ann{font-family:var(--f-label);font-size:12px;color:var(--muted);flex:0 0 60px;text-align:left;}
+  .dash{color:var(--muted);}
+  .bar{grid-column:1 / -1;height:6px;background:var(--track);border-radius:3px;margin:12px 0 2px;overflow:hidden;}
+  .bar > span{display:block;height:100%;background:var(--ink);border-radius:3px;}
+  .campus.total{border-top:2.5px solid var(--ink);margin-top:6px;padding-top:16px;}
+  .campus.total .cname{font-size:26px;}
+  .campus.total .tw .num{font-size:32px;}
+
+  footer{margin-top:16px;padding:16px 34px 22px;display:flex;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;border-top:1.5px solid var(--ink);}
+  footer div{font-family:var(--f-label);font-weight:500;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted);}
+
+  .pdf-icon{position:absolute;right:26px;bottom:22px;width:40px;height:40px;border:none;
+    border-radius:9px;background:var(--rust);cursor:pointer;display:flex;align-items:center;
+    justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);padding:0;}
+  .pdf-icon:hover{filter:brightness(1.09);}
+  .pdf-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round;}
+  #status{padding:40px 34px;font-family:var(--f-serif);font-size:16px;color:var(--muted-dark);}
+  #status.err{color:var(--rust);}
+  #status pre{font:11px/1.5 monospace;color:var(--muted-dark);white-space:pre-wrap;margin-top:10px;}
+  .hidden{display:none !important;}
+
+  @media (max-width:720px){
+    .thead,.crow{grid-template-columns:1fr 120px;}
+    .thead .col-ly,.crow .cell.ly,.thead .col-lw,.crow .cell.lw{display:none;}
+  }
+</style>
+</head>
+<body>
+  <div id="status">Loading trimester attendance…</div>
+
+  <div id="report" class="hidden">
+    <header>
+      <div class="head-top">
+        <div>
+          <p class="eyebrow" id="eyebrow">Avg Weekly Attendance</p>
+          <h1 class="total tabnum"><span id="grandTotal">—</span><span class="unit">avg / week</span></h1>
+        </div>
+        <div class="head-stats">
+          <div class="stat">
+            <div class="stat-label">Last Trimester</div>
+            <div class="stat-sub" id="priorLabel">—</div>
+            <div class="stat-num tabnum" id="priorTotal">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Year Ago</div>
+            <div class="stat-sub" id="lyLabel">—</div>
+            <div class="stat-num tabnum" id="lyTotal">—</div>
+          </div>
+        </div>
+      </div>
+      <p class="subtitle" id="subtitle"></p>
+      <button id="pdfBtn" class="pdf-icon hidden" title="Download as PDF" aria-label="Download as PDF">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
+      </button>
+    </header>
+
+    <main>
+      <div class="thead">
+        <div>Campus</div>
+        <div class="r strong">This Trimester<span class="sub" id="th-tw"></span></div>
+        <div class="r col-lw">Last Trimester<span class="sub" id="th-lw"></span></div>
+        <div class="r col-ly">Year Ago<span class="sub" id="th-ly"></span></div>
+      </div>
+      <div id="campuses"></div>
+    </main>
+
+    <footer>
+      <div id="foot-note">Avg weekly = attendance ÷ weeks in period &nbsp;·&nbsp; Year-to-date comparison</div>
+      <div>Excludes students and KM leaders</div>
+    </footer>
+  </div>
+
+<script>
+/* ============================================================
+   Trimester Attendance — Tableau dashboard extension
+   Reads the "Trimester Attendance" worksheet and compares each
+   campus's AVERAGE WEEKLY attendance across three periods:
+   current trimester, prior trimester, and same trimester last year.
+   Avg Weekly Value comes straight from the sheet (it already
+   accounts for weeks-in-period and the year-to-date filter).
+   ============================================================ */
+
+var WORKSHEET_NAME = "Trimester Attendance";
+var EXCLUDE_AGE = /leader|student|staff|volunteer/i;   // buckets to leave out of "attendance"
+
+function fmt(n){ return Math.round(n).toLocaleString("en-US"); }
+function el(id){ return document.getElementById(id); }
+function status(msg, isErr, extra){
+  var s=el("status"); s.className=isErr?"err":""; s.classList.remove("hidden");
+  s.innerHTML = msg + (extra?('<pre>'+extra+'</pre>'):'');
+  el("report").classList.add("hidden");
+  var b=el("pdfBtn"); if(b) b.classList.add("hidden");
+}
+
+// Open a print-ready copy of the current report in a new window and trigger the
+// browser's print dialog (choose "Save as PDF"). This is generated by the
+// extension itself, so it works even though Tableau can't export extensions to PDF.
+function downloadPdf(){
+  var report=el("report");
+  if(!report || report.classList.contains("hidden")) return;
+  var css=(el("ta-style")?el("ta-style").textContent:"");
+  var doc='<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Trimester Attendance</title>'
+    +'<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">'
+    +'<style>'+css+'</style>'
+    +'<style>html,body{background:#fff;} #report{display:block!important;} #pdfBtn{display:none!important;} @page{size:letter portrait;margin:.45in;} '
+    +'*{-webkit-print-color-adjust:exact;print-color-adjust:exact;} .campus{break-inside:avoid;}</style>'
+    +'</head><body>'+report.outerHTML+'</body></html>';
+  var w=window.open("","_blank");
+  if(!w){ alert("Pop-up blocked — please allow pop-ups for this site, then click Download as PDF again."); return; }
+  w.document.open(); w.document.write(doc); w.document.close();
+  w.focus();
+  setTimeout(function(){ try{ w.print(); }catch(e){} }, 500);
+}
+function num(cell){
+  if(!cell) return null;
+  var v = (typeof cell.nativeValue==="number") ? cell.nativeValue : cell.value;
+  var n = (typeof v==="number") ? v : parseFloat(String(v).replace(/[^0-9.\-]/g,""));
+  return isNaN(n)?null:n;
+}
+function colFinder(columns){
+  var byName={}; columns.forEach(function(c){ byName[c.fieldName.toLowerCase()]=c.index; });
+  return function(){ for(var i=0;i<arguments.length;i++){ var w=arguments[i].toLowerCase();
+    for(var name in byName){ if(name.indexOf(w)!==-1) return byName[name]; } } return -1; };
+}
+
+// --- period parsing: "T2 2026" / "Q3 2026" / "August   2026" / "2026" -> {y,p,ord,label} ---
+var MONTHS3=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+function parsePeriod(label){
+  var s=String(label==null?"":label).trim(); if(!s) return null;
+  var m;
+  if((m=s.match(/^T\s*(\d)\D+(\d{4})/i)))  return mk(+m[2],+m[1],s);
+  if((m=s.match(/^Q\s*(\d)\D+(\d{4})/i)))  return mk(+m[2],+m[1],s);
+  m=s.match(/(\d{4})/);
+  if(m){
+    var lm=s.toLowerCase();
+    for(var i=0;i<12;i++){ if(lm.indexOf(MONTHS3[i])>-1) return mk(+m[1],i+1,s); }
+    if(/^\d{4}$/.test(s)) return mk(+s,1,s);
+    return mk(+m[1],1,s);
+  }
+  return null;
+  function mk(y,p,lab){ return {y:y,p:p,ord:y*100+p,label:lab}; }
+}
+
+function buildModel(rows, columnNames){
+  // distinct periods
+  var periods={};
+  rows.forEach(function(r){ if(r.period){ var pp=parsePeriod(r.period); if(pp) periods[pp.ord]=pp; } });
+  var pList=Object.keys(periods).map(function(k){return periods[k];}).sort(function(a,b){return b.ord-a.ord;});
+  if(!pList.length) return null;
+
+  var cur=pList[0];
+  var prior=pList[1]||null;
+  var lastY=null;
+  for(var i=0;i<pList.length;i++){ if(pList[i].p===cur.p && pList[i].y===cur.y-1){ lastY=pList[i]; break; } }
+  var ords={tw:cur.ord, lw:prior?prior.ord:null, ly:lastY?lastY.ord:null};
+  function periodOf(ord){ if(ord===ords.tw)return "tw"; if(ord===ords.lw)return "lw"; if(ord===ords.ly)return "ly"; return null; }
+
+  var campusOrder=[], campuses={}, grand={tw:0,lw:0,ly:0,adults:0,kids:0};
+  function ensureCampus(c){ if(!campuses[c]){ campuses[c]={name:c,tw:0,lw:0,ly:0,adults:0,kids:0,has:{}}; campusOrder.push(c);} return campuses[c]; }
+
+  rows.forEach(function(r){
+    if(r.avg==null || !r.period) return;
+    if(EXCLUDE_AGE.test(r.agegroup||"")) return;      // drop leaders / students
+    var pp=parsePeriod(r.period); if(!pp) return;
+    var per=periodOf(pp.ord); if(!per) return;
+    var c=ensureCampus(r.campus);
+    c[per]+=r.avg; grand[per]+=r.avg; c.has[per]=true;
+    // adults/kids split for the current trimester (averages share a denominator, so additive)
+    if(per==="tw"){
+      if(/kid/i.test(r.agegroup)){ c.kids+=r.avg; grand.kids+=r.avg; }
+      else { c.adults+=r.avg; grand.adults+=r.avg; }
+    }
+  });
+
+  campusOrder.sort(function(a,b){ return campuses[b].tw - campuses[a].tw; });
+  return {cur:cur, prior:prior, lastY:lastY, grand:grand, campusOrder:campusOrder, campuses:campuses};
+}
+
+function deltaHTML(now, prior){
+  if(prior==null || prior===0 || now==null) return '<span class="delta"></span>';
+  var pct=(now-prior)/prior*100;
+  var cls=pct<-0.05?"down":(pct>0.05?"up":"flat");
+  var arrow=pct<-0.05?"▼":(pct>0.05?"▲":"");
+  return '<span class="delta '+cls+'">'+arrow+Math.abs(pct).toFixed(1)+'%</span>';
+}
+function valueCell(val, deltaOrAnn, cls){
+  cls=cls||"";
+  if(val==null || val===0 && cls!=="tw")
+    return '<div class="cell '+cls+'"><span class="num dash">—</span>'+(deltaOrAnn||'<span class="delta"></span>')+'</div>';
+  return '<div class="cell '+cls+'"><span class="num tabnum">'+fmt(val)+'</span>'+(deltaOrAnn||'')+'</div>';
+}
+
+function render(model){
+  if(!model){ status("No trimester data found on the “"+WORKSHEET_NAME+"” sheet.", true); return; }
+  el("status").classList.add("hidden");
+  el("report").classList.remove("hidden");
+  el("pdfBtn").classList.remove("hidden");
+
+  var g=model.grand;
+  el("eyebrow").textContent="Avg Weekly Attendance · "+(model.cur?model.cur.label:"");
+  el("grandTotal").textContent=fmt(g.tw);
+
+  el("priorLabel").textContent=model.prior?model.prior.label:"—";
+  el("priorTotal").textContent=model.prior?fmt(g.lw):"—";
+  el("lyLabel").textContent=model.lastY?model.lastY.label:"—";
+  el("lyTotal").textContent=model.lastY?fmt(g.ly):"—";
+
+  el("th-tw").textContent=model.cur?model.cur.label:"";
+  el("th-lw").textContent=model.prior?model.prior.label:"";
+  el("th-ly").textContent=model.lastY?model.lastY.label:"";
+
+  // subtitle
+  function phrase(now,prior,tail){
+    if(prior==null||prior===0) return null;
+    var diff=now-prior, pct=Math.abs(diff/prior*100);
+    if(Math.round(diff)===0) return "About even "+tail;
+    return (diff<0?"Down":"Up")+' <b>'+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
+  }
+  var pw=phrase(g.tw, model.prior?g.lw:null, "from last trimester");
+  var py=phrase(g.tw, model.lastY?g.ly:null, "from "+(model.lastY?model.lastY.label:"")+" a year ago");
+  var sub="";
+  if(pw&&py){ sub=pw+" and "+py.replace(/^(Down|Up|About even) /,'').replace(/^even /,'')+"."; }
+  else if(pw){ sub=pw+"."; } else if(py){ sub=py+"."; }
+  el("subtitle").innerHTML=sub;
+
+  var host=el("campuses"); host.innerHTML="";
+  model.campusOrder.forEach(function(cn){
+    var c=model.campuses[cn];
+    var share=g.tw>0?Math.max(0,Math.min(100,c.tw/g.tw*100)):0;
+    var block=document.createElement("div"); block.className="campus";
+    var crow=document.createElement("div"); crow.className="crow";
+    crow.innerHTML='<div class="cname">'+cn+'</div>'
+      + valueCell(c.tw,'<span class="ann">A '+fmt(c.adults)+' · K '+fmt(c.kids)+'</span>',"tw")
+      + valueCell(model.prior?c.lw:null, deltaHTML(c.tw, model.prior?c.lw:null), "lw")
+      + valueCell(model.lastY?c.ly:null, deltaHTML(c.tw, model.lastY?c.ly:null), "ly");
+    block.appendChild(crow);
+    var bar=document.createElement("div"); bar.className="bar";
+    bar.innerHTML='<span style="width:'+share.toFixed(2)+'%"></span>';
+    block.appendChild(bar);
+    host.appendChild(block);
+  });
+
+  // church total row (all campuses)
+  var tblock=document.createElement("div"); tblock.className="campus total";
+  var trow=document.createElement("div"); trow.className="crow";
+  trow.innerHTML='<div class="cname">Church Total</div>'
+    + valueCell(g.tw,'<span class="ann">A '+fmt(g.adults)+' · K '+fmt(g.kids)+'</span>',"tw")
+    + valueCell(model.prior?g.lw:null, deltaHTML(g.tw, model.prior?g.lw:null), "lw")
+    + valueCell(model.lastY?g.ly:null, deltaHTML(g.tw, model.lastY?g.ly:null), "ly");
+  tblock.appendChild(trow);
+  host.appendChild(tblock);
+}
+
+// ---- read summary data ----
+function readRows(worksheet){
+  function mapData(columns, data){
+    var find=colFinder(columns);
+    var iPeriod=find("trimester","semester","period","label");
+    var iCampus=find("campus");
+    var iAge   =find("age range","age");
+    var iAvg   =find("avg weekly","average weekly","avg wk","avg");   // wide format
+    var iMN    =find("measure names");                                // long format
+    var iMV    =find("measure values");
+    var out=[];
+    data.forEach(function(row){
+      var period = iPeriod>-1 ? row[iPeriod].formattedValue : "";
+      var campus = iCampus>-1 ? row[iCampus].formattedValue : "Unknown";
+      var age    = iAge>-1 ? row[iAge].formattedValue : "";
+      var avg=null;
+      if(iAvg>-1){
+        avg=num(row[iAvg]);
+      } else if(iMN>-1 && iMV>-1){
+        var mn=String(row[iMN].formattedValue||row[iMN].value||"");
+        if(/avg|weekly|average/i.test(mn)) avg=num(row[iMV]); else return; // skip non-avg measures
+      }
+      out.push({period:period, campus:campus, agegroup:age, avg:avg});
+    });
+    out.__cols = columns.map(function(c){return c.fieldName+" ["+(c.dataType||"?")+"]";});
+    return out;
+  }
+  if(typeof worksheet.getSummaryDataAsync==="function"){
+    return worksheet.getSummaryDataAsync({ignoreSelection:true, maxRows:0}).then(function(sd){ return mapData(sd.columns, sd.data); });
+  }
+  return worksheet.getSummaryDataReaderAsync(undefined,{ignoreSelection:true}).then(function(reader){
+    var cols=null, all=[], pages=reader.pageCount||0, seq=Promise.resolve();
+    for(var i=0;i<pages;i++){ (function(n){ seq=seq.then(function(){ return reader.getPageAsync(n).then(function(dt){ if(!cols)cols=dt.columns; dt.data.forEach(function(r){all.push(r);}); }); }); })(i); }
+    return seq.then(function(){return reader.releaseAsync();}).then(function(){ return mapData(cols||[], all); });
+  });
+}
+
+function findWorksheet(){
+  var dash=tableau.extensions.dashboardContent.dashboard;
+  return dash.worksheets.filter(function(w){return w.name===WORKSHEET_NAME;})[0]
+      || dash.worksheets.filter(function(w){return w.name.trim().toLowerCase()===WORKSHEET_NAME.toLowerCase();})[0];
+}
+function refresh(){
+  var ws=findWorksheet();
+  if(!ws){ var names=tableau.extensions.dashboardContent.dashboard.worksheets.map(function(w){return w.name;}).join(", ");
+    status("Couldn’t find a worksheet named “"+WORKSHEET_NAME+"”. Sheets here: "+names, true); return; }
+  status("Reading “"+ws.name+"”…");
+  readRows(ws).then(function(rows){
+    var model=buildModel(rows, rows.__cols);
+    if(!model || !model.campusOrder.length){
+      status("Couldn’t read trimester values from “"+ws.name+"”.", true, "Columns seen:\n"+((rows.__cols||[]).join("\n")));
+      return;
+    }
+    render(model);
+  }).catch(function(e){ status("Error reading data: "+(e&&e.message?e.message:e), true); });
+}
+
+el("pdfBtn").addEventListener("click", downloadPdf);
+
+tableau.extensions.initializeAsync().then(function(){
+  refresh();
+  try{ var ws=findWorksheet();
+    if(ws&&ws.addEventListener&&tableau.TableauEventType){
+      ws.addEventListener(tableau.TableauEventType.FilterChanged, refresh);
+      ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh);
+    }
+  }catch(e){}
+}).catch(function(e){ status("Couldn’t start the extension: "+(e&&e.message?e.message:e), true); });
+</script>
+</body>
+</html>
