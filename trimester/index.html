@@ -138,7 +138,7 @@
 
     <footer>
       <div id="foot-note">Avg weekly = attendance ÷ weeks in period &nbsp;·&nbsp; Year-to-date comparison</div>
-      <div>Excludes students and KM leaders</div>
+      <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; L = Kid Leaders &nbsp;·&nbsp; Excludes students</div>
     </footer>
   </div>
 
@@ -153,7 +153,7 @@
    ============================================================ */
 
 var WORKSHEET_NAME = "Trimester Attendance";
-var EXCLUDE_AGE = /leader|student|staff|volunteer/i;   // buckets to leave out of "attendance"
+var EXCLUDE_AGE = /student|staff|volunteer/i;   // buckets to leave out of "attendance" (Kid Leaders are now counted)
 
 function fmt(n){ return Math.round(n).toLocaleString("en-US"); }
 function el(id){ return document.getElementById(id); }
@@ -227,8 +227,8 @@ function buildModel(rows, columnNames){
   var ords={tw:cur.ord, lw:prior?prior.ord:null, ly:lastY?lastY.ord:null};
   function periodOf(ord){ if(ord===ords.tw)return "tw"; if(ord===ords.lw)return "lw"; if(ord===ords.ly)return "ly"; return null; }
 
-  var campusOrder=[], campuses={}, grand={tw:0,lw:0,ly:0,adults:0,kids:0};
-  function ensureCampus(c){ if(!campuses[c]){ campuses[c]={name:c,tw:0,lw:0,ly:0,adults:0,kids:0,has:{}}; campusOrder.push(c);} return campuses[c]; }
+  var campusOrder=[], campuses={}, grand={tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0};
+  function ensureCampus(c){ if(!campuses[c]){ campuses[c]={name:c,tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0,has:{}}; campusOrder.push(c);} return campuses[c]; }
 
   rows.forEach(function(r){
     if(r.avg==null || !r.period) return;
@@ -237,9 +237,12 @@ function buildModel(rows, columnNames){
     var per=periodOf(pp.ord); if(!per) return;
     var c=ensureCampus(r.campus);
     c[per]+=r.avg; grand[per]+=r.avg; c.has[per]=true;
-    // adults/kids split for the current trimester (averages share a denominator, so additive)
+    // adults / kids / kid leaders split for the current trimester (averages share a
+    // denominator, so additive). Check "leader" BEFORE "kid" — "Kid Leaders" contains
+    // "kid". All three are already in c[per]/grand[per] above, so totals include them.
     if(per==="tw"){
-      if(/kid/i.test(r.agegroup)){ c.kids+=r.avg; grand.kids+=r.avg; }
+      if(/leader/i.test(r.agegroup)){ c.kidLeaders+=r.avg; grand.kidLeaders+=r.avg; }
+      else if(/kid/i.test(r.agegroup)){ c.kids+=r.avg; grand.kids+=r.avg; }
       else { c.adults+=r.avg; grand.adults+=r.avg; }
     }
   });
@@ -302,7 +305,7 @@ function render(model){
     var block=document.createElement("div"); block.className="campus";
     var crow=document.createElement("div"); crow.className="crow";
     crow.innerHTML='<div class="cname">'+cn+'</div>'
-      + valueCell(c.tw,'<span class="ann">A '+fmt(c.adults)+' · K '+fmt(c.kids)+'</span>',"tw")
+      + valueCell(c.tw,'<span class="ann">A '+fmt(c.adults)+' · K '+fmt(c.kids)+' · L '+fmt(c.kidLeaders)+'</span>',"tw")
       + valueCell(model.prior?c.lw:null, deltaHTML(c.tw, model.prior?c.lw:null), "lw")
       + valueCell(model.lastY?c.ly:null, deltaHTML(c.tw, model.lastY?c.ly:null), "ly");
     block.appendChild(crow);
@@ -316,7 +319,7 @@ function render(model){
   var tblock=document.createElement("div"); tblock.className="campus total";
   var trow=document.createElement("div"); trow.className="crow";
   trow.innerHTML='<div class="cname">Church Total</div>'
-    + valueCell(g.tw,'<span class="ann">A '+fmt(g.adults)+' · K '+fmt(g.kids)+'</span>',"tw")
+    + valueCell(g.tw,'<span class="ann">A '+fmt(g.adults)+' · K '+fmt(g.kids)+' · L '+fmt(g.kidLeaders)+'</span>',"tw")
     + valueCell(model.prior?g.lw:null, deltaHTML(g.tw, model.prior?g.lw:null), "lw")
     + valueCell(model.lastY?g.ly:null, deltaHTML(g.tw, model.lastY?g.ly:null), "ly");
   tblock.appendChild(trow);

@@ -142,6 +142,10 @@
             <div class="stat-label">Kids</div>
             <div class="stat-num tabnum" id="kids">—</div>
           </div>
+          <div class="stat">
+            <div class="stat-label">Kid Leaders</div>
+            <div class="stat-num tabnum" id="kidLeaders">—</div>
+          </div>
         </div>
       </div>
       <p class="subtitle" id="subtitle"></p>
@@ -161,8 +165,8 @@
     </main>
 
     <footer>
-      <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; Bar shows share of total attendance</div>
-      <div>Excludes students and KM leaders</div>
+      <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; L = Kid Leaders &nbsp;·&nbsp; Bar shows share of total attendance</div>
+      <div>Totals include Adults, Kids, and Kid Leaders</div>
     </footer>
   </div>
 
@@ -316,12 +320,12 @@ function buildModel(rows){
   // 2) aggregate by campus/service/period, splitting adults vs kids for "this weekend"
   var campusOrder=[], campuses={};    // preserve first-seen order from the sheet
   function ensureCampus(c){
-    if (!campuses[c]){ campuses[c]={name:c, order:campusOrder.length, tw:0,lw:0,ly:0, adults:0, kids:0,
+    if (!campuses[c]){ campuses[c]={name:c, order:campusOrder.length, tw:0,lw:0,ly:0, adults:0, kids:0, kidLeaders:0,
       serviceOrder:[], services:{}}; campusOrder.push(c); }
     return campuses[c];
   }
   function ensureService(cObj,s){
-    if (!cObj.services[s]){ cObj.services[s]={name:s, tw:null,lw:null,ly:null, adults:0, kids:0, sortKey:null};
+    if (!cObj.services[s]){ cObj.services[s]={name:s, tw:null,lw:null,ly:null, adults:0, kids:0, kidLeaders:0, sortKey:null};
       cObj.serviceOrder.push(s); }
     return cObj.services[s];
   }
@@ -336,7 +340,7 @@ function buildModel(rows){
   }
   function periodOf(ms){ if(ms===keyMs.tw)return "tw"; if(ms===keyMs.lw)return "lw"; if(ms===keyMs.ly)return "ly"; return null; }
 
-  var grand={tw:0,lw:0,ly:0,adults:0,kids:0};
+  var grand={tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0};
 
   rows.forEach(function(r){
     if (!r.sunday) return;
@@ -356,12 +360,14 @@ function buildModel(rows){
     // campus period totals
     c[p] += r.value;
     grand[p] += r.value;
-    // adults/kids split (this weekend only, for header + A/K annotation)
+    // adults / kids / kid leaders split (this weekend only, for header + annotation).
+    // Check "leader" BEFORE "kid" — "Kid Leaders" contains "kid" and would otherwise
+    // be miscounted as Kids. The period totals above already include every row, so the
+    // grand total counts Adults + Kids + Kid Leaders together.
     if (p==="tw"){
-      var isKid = /kid/i.test(r.agegroup);
-      var isAdult = /adult/i.test(r.agegroup);
-      if (isKid){ s.kids += r.value; c.kids += r.value; grand.kids += r.value; }
-      else if (isAdult){ s.adults += r.value; c.adults += r.value; grand.adults += r.value; }
+      if (/leader/i.test(r.agegroup)){ s.kidLeaders += r.value; c.kidLeaders += r.value; grand.kidLeaders += r.value; }
+      else if (/kid/i.test(r.agegroup)){ s.kids += r.value; c.kids += r.value; grand.kids += r.value; }
+      else if (/adult/i.test(r.agegroup)){ s.adults += r.value; c.adults += r.value; grand.adults += r.value; }
       else { s.adults += r.value; c.adults += r.value; grand.adults += r.value; } // anything else -> adults
     }
   });
@@ -392,6 +398,7 @@ function render(model){
   el("grandTotal").textContent = fmt(g.tw);
   el("adults").textContent = fmt(g.adults);
   el("kids").textContent = fmt(g.kids);
+  el("kidLeaders").textContent = fmt(g.kidLeaders);
 
   // subtitle
   var parts=[];
@@ -452,7 +459,7 @@ function render(model){
         twCell = '<div class="cell tw"><span class="num dash">—</span><span class="ann"></span></div>';
       } else {
         var ann = (s.tw!=null)
-          ? '<span class="ann">A '+fmt(s.adults)+' · K '+fmt(s.kids)+'</span>'
+          ? '<span class="ann">A '+fmt(s.adults)+' · K '+fmt(s.kids)+' · L '+fmt(s.kidLeaders)+'</span>'
           : '<span class="ann"></span>';
         twCell = valueCell(s.tw, ann, "tw");
       }
