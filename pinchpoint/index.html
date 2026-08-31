@@ -500,10 +500,15 @@ async function loadFromTableau(){
   if(!Object.keys(out.campuses).length) throw new Error('No rows returned from the worksheets.');
   DATA=out;
 
-  // Keep the extension live: redraw whenever any of the 3 sheets changes.
-  [wsAwa,wsTrend,wsSvc].forEach(ws=>{ try{ ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh); }catch(e){} });
+  // Keep the extension live: redraw whenever any of the 3 sheets changes — but attach
+  // each listener only ONCE. (refresh() calls this function again, so re-adding here
+  // would multiply listeners on every change and make the dashboard flicker/glitch.)
+  [wsAwa,wsTrend,wsSvc].forEach(ws=>{ try{
+    if(!wired.has(ws.name)){ ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh); wired.add(ws.name); }
+  }catch(e){} });
 }
 
+const wired=new Set();
 let refreshing=false;
 async function refresh(){ if(refreshing)return; refreshing=true; try{ await loadFromTableau(); initFilters(); updateWeekendFilter(); }catch(e){} refreshing=false; render(); }
 
