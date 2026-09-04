@@ -138,7 +138,7 @@
 
     <footer>
       <div id="foot-note">Avg weekly = attendance ÷ weeks in period &nbsp;·&nbsp; Year-to-date comparison</div>
-      <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; L = Kid Leaders &nbsp;·&nbsp; Excludes students</div>
+      <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; L = Kid Leaders &nbsp;·&nbsp; M = Middle School &nbsp;·&nbsp; Excludes staff &amp; volunteers</div>
     </footer>
   </div>
 
@@ -227,12 +227,12 @@ function buildModel(rows, columnNames){
   var ords={tw:cur.ord, lw:prior?prior.ord:null, ly:lastY?lastY.ord:null};
   function periodOf(ord){ if(ord===ords.tw)return "tw"; if(ord===ords.lw)return "lw"; if(ord===ords.ly)return "ly"; return null; }
 
-  var campusOrder=[], campuses={}, grand={tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0};
-  function ensureCampus(c){ if(!campuses[c]){ campuses[c]={name:c,tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0,has:{}}; campusOrder.push(c);} return campuses[c]; }
+  var campusOrder=[], campuses={}, grand={tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0,middleSchool:0};
+  function ensureCampus(c){ if(!campuses[c]){ campuses[c]={name:c,tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0,middleSchool:0,has:{}}; campusOrder.push(c);} return campuses[c]; }
 
   rows.forEach(function(r){
     if(r.avg==null || !r.period) return;
-    if(EXCLUDE_AGE.test(r.agegroup||"")) return;      // drop leaders / students
+    if(EXCLUDE_AGE.test(r.agegroup||"") && !/middle/i.test(r.agegroup||"")) return;   // drop staff/volunteers & other students, but KEEP Middle School students
     var pp=parsePeriod(r.period); if(!pp) return;
     var per=periodOf(pp.ord); if(!per) return;
     var c=ensureCampus(r.campus);
@@ -242,6 +242,7 @@ function buildModel(rows, columnNames){
     // "kid". All three are already in c[per]/grand[per] above, so totals include them.
     if(per==="tw"){
       if(/leader/i.test(r.agegroup)){ c.kidLeaders+=r.avg; grand.kidLeaders+=r.avg; }
+      else if(/middle/i.test(r.agegroup)){ c.middleSchool+=r.avg; grand.middleSchool+=r.avg; }
       else if(/kid/i.test(r.agegroup)){ c.kids+=r.avg; grand.kids+=r.avg; }
       else { c.adults+=r.avg; grand.adults+=r.avg; }
     }
@@ -305,7 +306,7 @@ function render(model){
     var block=document.createElement("div"); block.className="campus";
     var crow=document.createElement("div"); crow.className="crow";
     crow.innerHTML='<div class="cname">'+cn+'</div>'
-      + valueCell(c.tw,'<span class="ann">A '+fmt(c.adults)+' · K '+fmt(c.kids)+' · L '+fmt(c.kidLeaders)+'</span>',"tw")
+      + valueCell(c.tw,'<span class="ann">A '+fmt(c.adults)+' · K '+fmt(c.kids)+' · L '+fmt(c.kidLeaders)+' · M '+fmt(c.middleSchool)+'</span>',"tw")
       + valueCell(model.prior?c.lw:null, deltaHTML(c.tw, model.prior?c.lw:null), "lw")
       + valueCell(model.lastY?c.ly:null, deltaHTML(c.tw, model.lastY?c.ly:null), "ly");
     block.appendChild(crow);
@@ -319,7 +320,7 @@ function render(model){
   var tblock=document.createElement("div"); tblock.className="campus total";
   var trow=document.createElement("div"); trow.className="crow";
   trow.innerHTML='<div class="cname">Church Total</div>'
-    + valueCell(g.tw,'<span class="ann">A '+fmt(g.adults)+' · K '+fmt(g.kids)+' · L '+fmt(g.kidLeaders)+'</span>',"tw")
+    + valueCell(g.tw,'<span class="ann">A '+fmt(g.adults)+' · K '+fmt(g.kids)+' · L '+fmt(g.kidLeaders)+' · M '+fmt(g.middleSchool)+'</span>',"tw")
     + valueCell(model.prior?g.lw:null, deltaHTML(g.tw, model.prior?g.lw:null), "lw")
     + valueCell(model.lastY?g.ly:null, deltaHTML(g.tw, model.lastY?g.ly:null), "ly");
   tblock.appendChild(trow);
