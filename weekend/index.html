@@ -413,23 +413,20 @@ function render(model){
   el("kidLeaders").textContent = fmt(g.kidLeaders);
   el("middleSchool").textContent = fmt(g.middleSchool);
 
-  // subtitle
-  var parts=[];
+  // subtitle — lead each clause with a colored ▲/▼ (green up, red down) instead of the
+  // word "Up"/"Down", and keep the arrow on BOTH clauses.
   function phrase(now, prior, tail){
     if (prior==null) return null;
     var diff = now - prior, pct = prior? Math.abs(diff/prior*100):0;
-    var dir = diff<0 ? "Down" : (diff>0 ? "Up" : "Even");
-    if (diff===0) return "Even with "+tail;
-    return dir+' <b class="'+(diff<0?'down':'up')+'">'+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
+    if (diff===0) return '<b class="flat">Even</b> '+tail;
+    var cls = diff<0 ? 'down' : 'up', arrow = diff<0 ? '▼' : '▲';
+    return '<b class="'+cls+'">'+arrow+' '+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
   }
   var pw = phrase(g.tw, model.lastW?g.lw:null, "from last weekend");
   var py = phrase(g.tw, model.priorY?g.ly:null, "from this weekend a year ago");
   var sub="";
-  if (pw && py){
-    // "Down X (x%) from last weekend and Y (y%) from this weekend a year ago."
-    var pyTail = py.replace(/^(Down|Up|Even) /,'').replace(/^with /,'');
-    sub = pw + " and " + pyTail + ".";
-  } else if (pw){ sub = pw + "."; }
+  if (pw && py){ sub = pw + " and " + py + "."; }
+  else if (pw){ sub = pw + "."; }
   else if (py){ sub = py + "."; }
   el("subtitle").innerHTML = sub;
 

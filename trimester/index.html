@@ -287,17 +287,19 @@ function render(model){
   el("th-lw").textContent=model.prior?model.prior.label:"";
   el("th-ly").textContent=model.lastY?model.lastY.label:"";
 
-  // subtitle
+  // subtitle — lead each clause with a colored ▲/▼ (green up, red down) instead of the
+  // word "Up"/"Down", and keep the arrow on BOTH clauses.
   function phrase(now,prior,tail){
     if(prior==null||prior===0) return null;
     var diff=now-prior, pct=Math.abs(diff/prior*100);
-    if(Math.round(diff)===0) return "About even "+tail;
-    return (diff<0?"Down":"Up")+' <b class="'+(diff<0?'down':'up')+'">'+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
+    if(Math.round(diff)===0) return '<b class="flat">Even</b> '+tail;
+    var cls=diff<0?'down':'up', arrow=diff<0?'▼':'▲';
+    return '<b class="'+cls+'">'+arrow+' '+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
   }
   var pw=phrase(g.tw, model.prior?g.lw:null, "from last trimester");
   var py=phrase(g.tw, model.lastY?g.ly:null, "from "+(model.lastY?model.lastY.label:"")+" a year ago");
   var sub="";
-  if(pw&&py){ sub=pw+" and "+py.replace(/^(Down|Up|About even) /,'').replace(/^even /,'')+"."; }
+  if(pw&&py){ sub=pw+" and "+py+"."; }
   else if(pw){ sub=pw+"."; } else if(py){ sub=py+"."; }
   el("subtitle").innerHTML=sub;
 
