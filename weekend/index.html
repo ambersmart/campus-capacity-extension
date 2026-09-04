@@ -172,7 +172,7 @@
 
     <footer>
       <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; L = Kid Leaders &nbsp;·&nbsp; M = Middle School &nbsp;·&nbsp; Bar shows share of total attendance</div>
-      <div>Weekend services only (Fri–Sun) &nbsp;·&nbsp; Totals include Adults, Kids, Kid Leaders, and Middle School</div>
+      <div>Weekend services only (Sat &amp; Sun) &nbsp;·&nbsp; Totals include Adults, Kids, Kid Leaders, and Middle School</div>
     </footer>
   </div>
 
@@ -352,11 +352,11 @@ function buildModel(rows){
     if (!r.sunday) return;
     var p = periodOf(r.sunday.getTime());
     if (!p) return;
-    // Weekend report: count only weekend services (Fri/Sat/Sun) by the ACTUAL service
-    // date, not the schedule name (names can contain both "Sunday" and "Wednesday").
-    // Drops midweek (Mon–Thu, incl. Wednesday). If the service date is missing/unparseable,
-    // keep the row rather than risk dropping real weekend data.
-    if (r.serviceDate){ var wd = r.serviceDate.getDay(); if (wd!==0 && wd!==5 && wd!==6) return; }
+    // Weekend report: count only Saturday & Sunday services by the ACTUAL service date,
+    // not the schedule name (names can contain both "Sunday" and "Wednesday"). Drops
+    // everything Mon–Fri (incl. Wednesday and Friday). If the service date is
+    // missing/unparseable, keep the row rather than risk dropping real weekend data.
+    if (r.serviceDate){ var wd = r.serviceDate.getDay(); if (wd!==0 && wd!==6) return; }
     var c = ensureCampus(r.campus);
     var s = ensureService(c, r.service);
     // sort key: weekend day offset (Sat before Sun) then time of day. Prefer a
