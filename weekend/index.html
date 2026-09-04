@@ -24,7 +24,7 @@
     --cream:#ece7db;        /* light text on dark */
     --cream-soft:#c9c3b4;   /* soft text on dark */
     --rust:#c1440e;         /* accent / declines */
-    --up:#1b1712;           /* increases render dark, per wireframe */
+    --up:#2e7d32;           /* increases render green */
     --track:rgba(27,23,18,.10);
 
     --f-cond:'Oswald','Arial Narrow','Helvetica Neue',sans-serif;
@@ -61,7 +61,9 @@
   .head-stats .stat-num{font-family:var(--f-cond);font-weight:600;font-size:30px;line-height:1;}
   .subtitle{font-family:var(--f-serif);font-size:17px;line-height:1.5;color:var(--cream-soft);
     max-width:640px;margin:22px 0 0;}
-  .subtitle b{color:var(--rust);font-weight:500;}
+  .subtitle b{font-weight:500;}
+  .subtitle b.up{color:var(--up);}
+  .subtitle b.down{color:var(--rust);}
 
   /* ---------- TABLE ---------- */
   main{flex:1 1 auto;padding:8px 34px 0;}
@@ -418,7 +420,7 @@ function render(model){
     var diff = now - prior, pct = prior? Math.abs(diff/prior*100):0;
     var dir = diff<0 ? "Down" : (diff>0 ? "Up" : "Even");
     if (diff===0) return "Even with "+tail;
-    return dir+' <b>'+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
+    return dir+' <b class="'+(diff<0?'down':'up')+'">'+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
   }
   var pw = phrase(g.tw, model.lastW?g.lw:null, "from last weekend");
   var py = phrase(g.tw, model.priorY?g.ly:null, "from this weekend a year ago");

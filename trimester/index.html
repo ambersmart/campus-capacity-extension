@@ -16,7 +16,7 @@
   :root{
     --ink:#1b1712; --header-bg:#262019; --paper:#e7e3d6; --paper-line:#cbc6b6;
     --muted:#8f897b; --muted-dark:#6f6a5d; --cream:#ece7db; --cream-soft:#c9c3b4;
-    --rust:#c1440e; --up:#1b1712; --track:rgba(27,23,18,.10);
+    --rust:#c1440e; --up:#2e7d32; --track:rgba(27,23,18,.10);
     --f-cond:'Oswald','Arial Narrow','Helvetica Neue',sans-serif;
     --f-serif:'Spectral',Georgia,'Times New Roman',serif;
     --f-label:'Oswald','Helvetica Neue',Arial,sans-serif;
@@ -45,7 +45,9 @@
   .head-stats .stat-num{font-family:var(--f-cond);font-weight:600;font-size:30px;line-height:1.05;}
   .subtitle{font-family:var(--f-serif);font-size:17px;line-height:1.5;color:var(--cream-soft);
     max-width:680px;margin:22px 0 0;}
-  .subtitle b{color:var(--rust);font-weight:500;}
+  .subtitle b{font-weight:500;}
+  .subtitle b.up{color:var(--up);}
+  .subtitle b.down{color:var(--rust);}
 
   main{flex:1 1 auto;padding:8px 34px 0;}
   .thead,.crow{display:grid;grid-template-columns:minmax(180px,1fr) 200px 200px 200px;
@@ -138,7 +140,7 @@
 
     <footer>
       <div id="foot-note">Avg weekly = attendance ÷ weeks in period &nbsp;·&nbsp; Year-to-date comparison</div>
-      <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; L = Kid Leaders &nbsp;·&nbsp; Excludes students</div>
+      <div>A = Adults &nbsp;·&nbsp; K = Kids &nbsp;·&nbsp; L = Kid Leaders &nbsp;·&nbsp; M = Middle School &nbsp;·&nbsp; Excludes staff &amp; volunteers</div>
     </footer>
   </div>
 
@@ -227,12 +229,12 @@ function buildModel(rows, columnNames){
   var ords={tw:cur.ord, lw:prior?prior.ord:null, ly:lastY?lastY.ord:null};
   function periodOf(ord){ if(ord===ords.tw)return "tw"; if(ord===ords.lw)return "lw"; if(ord===ords.ly)return "ly"; return null; }
 
-  var campusOrder=[], campuses={}, grand={tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0};
-  function ensureCampus(c){ if(!campuses[c]){ campuses[c]={name:c,tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0,has:{}}; campusOrder.push(c);} return campuses[c]; }
+  var campusOrder=[], campuses={}, grand={tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0,middleSchool:0};
+  function ensureCampus(c){ if(!campuses[c]){ campuses[c]={name:c,tw:0,lw:0,ly:0,adults:0,kids:0,kidLeaders:0,middleSchool:0,has:{}}; campusOrder.push(c);} return campuses[c]; }
 
   rows.forEach(function(r){
     if(r.avg==null || !r.period) return;
-    if(EXCLUDE_AGE.test(r.agegroup||"")) return;      // drop leaders / students
+    if(EXCLUDE_AGE.test(r.agegroup||"") && !/middle/i.test(r.agegroup||"")) return;   // drop staff/volunteers & other students, but KEEP Middle School students
     var pp=parsePeriod(r.period); if(!pp) return;
     var per=periodOf(pp.ord); if(!per) return;
     var c=ensureCampus(r.campus);
@@ -242,6 +244,7 @@ function buildModel(rows, columnNames){
     // "kid". All three are already in c[per]/grand[per] above, so totals include them.
     if(per==="tw"){
       if(/leader/i.test(r.agegroup)){ c.kidLeaders+=r.avg; grand.kidLeaders+=r.avg; }
+      else if(/middle/i.test(r.agegroup)){ c.middleSchool+=r.avg; grand.middleSchool+=r.avg; }
       else if(/kid/i.test(r.agegroup)){ c.kids+=r.avg; grand.kids+=r.avg; }
       else { c.adults+=r.avg; grand.adults+=r.avg; }
     }
@@ -289,7 +292,7 @@ function render(model){
     if(prior==null||prior===0) return null;
     var diff=now-prior, pct=Math.abs(diff/prior*100);
     if(Math.round(diff)===0) return "About even "+tail;
-    return (diff<0?"Down":"Up")+' <b>'+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
+    return (diff<0?"Down":"Up")+' <b class="'+(diff<0?'down':'up')+'">'+fmt(Math.abs(diff))+' ('+pct.toFixed(1)+'%)</b> '+tail;
   }
   var pw=phrase(g.tw, model.prior?g.lw:null, "from last trimester");
   var py=phrase(g.tw, model.lastY?g.ly:null, "from "+(model.lastY?model.lastY.label:"")+" a year ago");
@@ -305,7 +308,7 @@ function render(model){
     var block=document.createElement("div"); block.className="campus";
     var crow=document.createElement("div"); crow.className="crow";
     crow.innerHTML='<div class="cname">'+cn+'</div>'
-      + valueCell(c.tw,'<span class="ann">A '+fmt(c.adults)+' · K '+fmt(c.kids)+' · L '+fmt(c.kidLeaders)+'</span>',"tw")
+      + valueCell(c.tw,'<span class="ann">A '+fmt(c.adults)+' · K '+fmt(c.kids)+' · L '+fmt(c.kidLeaders)+' · M '+fmt(c.middleSchool)+'</span>',"tw")
       + valueCell(model.prior?c.lw:null, deltaHTML(c.tw, model.prior?c.lw:null), "lw")
       + valueCell(model.lastY?c.ly:null, deltaHTML(c.tw, model.lastY?c.ly:null), "ly");
     block.appendChild(crow);
@@ -319,7 +322,7 @@ function render(model){
   var tblock=document.createElement("div"); tblock.className="campus total";
   var trow=document.createElement("div"); trow.className="crow";
   trow.innerHTML='<div class="cname">Church Total</div>'
-    + valueCell(g.tw,'<span class="ann">A '+fmt(g.adults)+' · K '+fmt(g.kids)+' · L '+fmt(g.kidLeaders)+'</span>',"tw")
+    + valueCell(g.tw,'<span class="ann">A '+fmt(g.adults)+' · K '+fmt(g.kids)+' · L '+fmt(g.kidLeaders)+' · M '+fmt(g.middleSchool)+'</span>',"tw")
     + valueCell(model.prior?g.lw:null, deltaHTML(g.tw, model.prior?g.lw:null), "lw")
     + valueCell(model.lastY?g.ly:null, deltaHTML(g.tw, model.lastY?g.ly:null), "ly");
   tblock.appendChild(trow);
