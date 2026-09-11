@@ -174,9 +174,9 @@ const SAMPLE_LEADS = {
 };
 
 /* ---------- Status logic ---------- */
-// Progress may arrive as a fraction (0.24) or a whole-number percent (24, 6, 1).
-// Values below 1 are treated as fractions; 1 and up are treated as percents.
-function normProgress(v){ v=+v; if(isNaN(v)) return 0; return (v>0 && v<1) ? v*100 : v; }
+// Progress may arrive as a fraction (0.24, or exactly 1.0 for 100%) or a whole-number percent (24, 6).
+// Values from 0 up to and including 1 are treated as fractions; above 1 is treated as a percent.
+function normProgress(v){ v=+v; if(isNaN(v)) return 0; return (v>0 && v<=1) ? v*100 : v; }
 function pctOf(d){
   if(d.progress!=null && d.progress!=="") return Math.round(normProgress(d.progress)); // your "Progress to Goal"
   // No Progress-to-Goal value: only compute from a REAL current; otherwise 0 (never negative).
