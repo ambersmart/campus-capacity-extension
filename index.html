@@ -51,7 +51,7 @@
   .legend{display:flex;gap:16px;flex-wrap:wrap;margin:2px 0 16px;color:var(--text-2);font-size:12px}
   .legend span{display:inline-flex;align-items:center;gap:6px}
   .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
-  .dot.green{background:var(--good)}.dot.yellow{background:var(--warning)}.dot.red{background:var(--critical)}.dot.unknown{background:var(--nocap)}
+  .dot.blue{background:var(--blue-450)}.dot.green{background:var(--good)}.dot.yellow{background:var(--warning)}.dot.red{background:var(--critical)}.dot.unknown{background:var(--nocap)}
   .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
   .tag.prime{color:var(--prime);background:var(--prime-bg);border:1px solid var(--prime)}
 
@@ -68,7 +68,7 @@
   .svcrow .num b{color:var(--text-1)}
   .meter{height:9px;background:var(--surface-2);border-radius:999px;overflow:hidden}
   .meter>i{display:block;height:100%;border-radius:999px}
-  .meter.green>i{background:var(--good)}.meter.yellow>i{background:var(--warning)}.meter.red>i{background:var(--critical)}.meter.unknown>i{background:var(--nocap)}
+  .meter.blue>i{background:var(--blue-450)}.meter.green>i{background:var(--good)}.meter.yellow>i{background:var(--warning)}.meter.red>i{background:var(--critical)}.meter.unknown>i{background:var(--nocap)}
   .util{font-variant-numeric:tabular-nums;text-align:right;font-size:13px;font-weight:650}
   .thresh{color:var(--muted);font-weight:400;font-size:11px}
 
@@ -105,6 +105,7 @@
   .trow.head .tcell{color:var(--muted);font-size:10.5px;font-weight:600;background:transparent}
   .tlabel{font-size:12.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-right:6px}
   .tcell{font-variant-numeric:tabular-nums;font-size:12px;text-align:center;padding:6px 2px;border-radius:5px;color:var(--text-1)}
+  .tcell.blue{background:rgba(42,120,214,.18)}
   .tcell.green{background:rgba(12,163,12,.16)}
   .tcell.yellow{background:rgba(250,178,25,.22)}
   .tcell.red{background:rgba(208,59,59,.22);font-weight:650}
@@ -155,6 +156,7 @@
   <!-- ================= FILL GRID ================= -->
   <section id="viewGrid">
     <div class="legend">
+      <span><i class="dot blue"></i> Under 20% &mdash; underused</span>
       <span><i class="dot green"></i> Room to grow</span>
       <span><i class="dot yellow"></i> Approaching full</span>
       <span><i class="dot red"></i> Full &mdash; time to add a service</span>
@@ -176,6 +178,7 @@
   <!-- ================= 12-WEEK TREND ================= -->
   <section id="viewTrend" class="hidden">
     <div class="legend">
+      <span><i class="dot blue"></i> Under 20% &mdash; underused</span>
       <span><i class="dot green"></i> Room to grow</span>
       <span><i class="dot yellow"></i> Approaching full</span>
       <span><i class="dot red"></i> Full</span>
@@ -219,6 +222,7 @@
 const PRIME_FULL = 70;   // prime Sunday-morning services are "full" at 70%
 const OTHER_FULL = 40;   // every other service is "full" at 40%
 const YELLOW_GAP = 10;   // within this many points below "full" => yellow
+const LOW_FILL   = 20;   // below this % => blue (underused)
 
 // Prime = starts Sunday between 9:00 and 11:00 am (inclusive).
 const PRIME_START = 9*60, PRIME_END = 11*60;
@@ -287,6 +291,7 @@ function lightFor(pct,svc){
   const full=fullLine(svc);
   if(pct>=full)return 'red';
   if(pct>=full-YELLOW_GAP)return 'yellow';
+  if(pct<LOW_FILL)return 'blue';
   return 'green';
 }
 function svcSortKey(svc){
